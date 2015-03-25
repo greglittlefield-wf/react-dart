@@ -41,6 +41,41 @@ newJsMap(Map map) {
 typedef JsObject ReactComponentFactory(Map props, [dynamic children]);
 typedef Component ComponentFactory();
 
+class ReactComponentFactoryProxy implements Function {
+  final JsFunction reactComponentFactory;
+  ReactComponentFactoryProxy(this.reactComponentFactory);
+
+  JsObject call(Map props, [dynamic children]) {
+    if (children == null) {
+      children = [];
+    } else if (children is! Iterable) {
+      children = [children];
+    }
+    var extendedProps = new Map.from(props);
+    extendedProps['children'] = children;
+
+    var convertedArgs = newJsObjectEmpty();
+
+    /**
+     * add key to args which will be passed to javascript react component
+     */
+    if (extendedProps.containsKey('key')) {
+      convertedArgs['key'] = extendedProps['key'];
+    }
+
+    if (extendedProps.containsKey('ref')) {
+      convertedArgs['ref'] = extendedProps['ref'];
+    }
+
+    /**
+     * put props to internal part of args
+     */
+    convertedArgs[INTERNAL] = {PROPS: extendedProps};
+
+    return reactComponentFactory.apply([convertedArgs, new JsArray.from(children)]);
+  }
+}
+
 
 /** TODO Think about using Expandos */
 _getInternal(JsObject jsThis) => jsThis[PROPS][INTERNAL];
@@ -218,7 +253,7 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
   /**
    * create reactComponent with wrapped functions
    */
-  var reactComponentFactory = _React.callMethod('createFactory', [
+  JsFunction reactComponentFactory = _React.callMethod('createFactory', [
     _React.callMethod('createClass', [newJsMap(
       removeUnusedMethods({
         'componentWillMount': componentWillMount,
@@ -238,35 +273,7 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
   /**
    * return ReactComponentFactory which produce react component with set props and children[s]
    */
-  return (Map props, [dynamic children]) {
-    if (children == null) {
-      children = [];
-    } else if (children is! Iterable) {
-      children = [children];
-    }
-    var extendedProps = new Map.from(props);
-    extendedProps['children'] = children;
-
-    var convertedArgs = newJsObjectEmpty();
-
-    /**
-     * add key to args which will be passed to javascript react component
-     */
-    if (extendedProps.containsKey('key')) {
-      convertedArgs['key'] = extendedProps['key'];
-    }
-
-    if (extendedProps.containsKey('ref')) {
-      convertedArgs['ref'] = extendedProps['ref'];
-    }
-
-    /**
-     * put props to internal part of args
-     */
-    convertedArgs[INTERNAL] = {PROPS: extendedProps};
-
-    return reactComponentFactory.apply([convertedArgs, new JsArray.from(children)]);
-  };
+  return new ReactComponentFactoryProxy(reactComponentFactory);
 
 }
 
