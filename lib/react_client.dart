@@ -9,8 +9,8 @@ import "dart:js";
 import "dart:html";
 import "dart:async";
 
-var _React = context['React'];
-var _Object = context['Object'];
+JsObject _React = context['React'];
+JsObject _Object = context['Object'];
 
 const PROPS = 'props';
 const INTERNAL = '__internal__';
@@ -35,6 +35,88 @@ newJsMap(Map map) {
   return JsMap;
 }
 
+JsObject convertDartProps(Map extendedProps) {
+  var convertedArgs = newJsObjectEmpty();
+
+  /**
+   * add key to args which will be passed to javascript react component
+   */
+  if (extendedProps.containsKey('key')) {
+    convertedArgs['key'] = extendedProps['key'];
+  }
+
+  if (extendedProps.containsKey('ref')) {
+    convertedArgs['ref'] = extendedProps['ref'];
+  }
+
+  /**
+   * put props to internal part of args
+   */
+  convertedArgs[INTERNAL] = {PROPS: extendedProps};
+
+  return convertedArgs;
+}
+
+// FIXME support for non-Dart components?
+Map getExtendedProps(JsObject element) {
+  Map internal = _getInternal(element);
+  if (internal == null) {
+    return null;
+  }
+
+  return internal[PROPS];
+}
+
+
+JsObject cloneElement(JsObject element, Map config, [dynamic children]) {
+  List arguments = [element];
+
+  Map internal = _getInternal(element);
+  if (internal != null) {
+    Map oldConfig = internal[PROPS];
+    Map extendedProps = new Map.from(oldConfig)
+      ..addAll(config);
+
+    arguments.add(convertDartProps(extendedProps));
+  } else {
+    arguments.add(newJsMap(config));
+  }
+
+  // Children can be more than one argument, and those are transferred onto
+  // the newly allocated props object.
+  if (children is Iterable) {
+    arguments.add(new JsArray.from(children));
+  } else if (children != null) {
+    arguments.add(children);
+  }
+
+  return _React.callMethod('cloneElement', arguments);
+}
+
+Element findDOMNode(JsObject component) {
+  return _React.callMethod('findDOMNode', [component]);
+}
+
+Component getDartComponent(JsObject component) {
+  if (component == null) {
+    return null;
+  }
+
+  var internal = _getInternal(component);
+  if (internal == null) {
+    return null;
+  }
+
+  return internal[COMPONENT];
+}
+
+bool isValidElement(dynamic element) {
+  if (element is JsObject) {
+    return _React.callMethod('isValidElement', [element]);
+  }
+  return false;
+}
+
 /**
  * Type of [children] must be child or list of childs, when child is JsObject or String
  */
@@ -57,7 +139,7 @@ _getProps(JsObject jsThis) => _getInternal(jsThis)[PROPS];
 _getComponent(JsObject jsThis) => _getInternal(jsThis)[COMPONENT];
 _getInternalProps(JsObject jsProps) => jsProps[INTERNAL][PROPS];
 
-ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Iterable<String> skipMethods = const []]) {
+ReactComponentFactoryProxy _registerComponent(ComponentFactory componentFactory, [Iterable<String> skipMethods = const []]) {
 
   var zone = Zone.current;
 
@@ -250,26 +332,10 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
     } else if (children is! Iterable) {
       children = [children];
     }
-    var extendedProps = new Map.from(props);
+    Map extendedProps = new Map.from(props);
     extendedProps['children'] = children;
 
-    var convertedArgs = newJsObjectEmpty();
-
-    /**
-     * add key to args which will be passed to javascript react component
-     */
-    if (extendedProps.containsKey('key')) {
-      convertedArgs['key'] = extendedProps['key'];
-    }
-
-    if (extendedProps.containsKey('ref')) {
-      convertedArgs['ref'] = extendedProps['ref'];
-    }
-
-    /**
-     * put props to internal part of args
-     */
-    convertedArgs[INTERNAL] = {PROPS: extendedProps};
+    JsObject convertedArgs = convertDartProps(extendedProps);
 
     return reactComponentFactory.apply([convertedArgs, new JsArray.from(children)]);
   };

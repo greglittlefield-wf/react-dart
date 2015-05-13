@@ -10,9 +10,9 @@ library react;
 abstract class Component {
   Map props;
 
-  dynamic ref;
-  dynamic getDOMNode;
-  dynamic _jsRedraw;
+  Function ref;
+  Function getDOMNode;
+  Function _jsRedraw;
 
   /**
    * Bind the value of input to [state[key]].
