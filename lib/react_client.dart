@@ -5,12 +5,103 @@
 library react_client;
 
 import "package:react/react.dart";
+import "package:js/js.dart";
 import "dart:js";
 import "dart:html";
 import "dart:async";
 
-var _React = context['React'];
-var _Object = context['Object'];
+/// Hacky way of getting the object proxied JsObject associated
+@JS()
+external dynamic unwrap(JsObject obj);
+
+@JS()
+class React {
+  external static ReactClass createClass(ReactClassConfig reactClassConfig);
+  external static Function createFactory(type);
+  external static Element findDOMNode(object);
+
+  external static Element cloneElement(element, [addedProps, newChildren]);
+
+  external static ReactElement createElement(dynamic type, props, [dynamic children]);
+
+  external static initializeTouchEvents(bool touchEnabled);
+  external static ReactComponent render(ReactElement component, HtmlElement element);
+  external static String renderToString(ReactElement component);
+  external static String renderToStaticMarkup(ReactElement component);
+  external static bool unmountComponentAtNode(HtmlElement element);
+
+}
+
+@JS()
+@anonymous
+class EmptyObject {
+  external factory EmptyObject();
+}
+
+@JS()
+@anonymous
+class ReactElement {
+  external String get key;
+
+  external dynamic get ref;
+  external InteropProps get props;
+}
+
+@JS()
+@anonymous
+class CloningProps {
+  external String get key;
+  external String get ref;
+
+  external factory CloningProps({String key, dynamic ref});
+}
+
+@JS()
+@anonymous
+class ReactComponent<TComponent extends Component> {
+  external InteropProps get props;
+  external Map get refs;
+  external setState(state);
+}
+
+@JS()
+@anonymous
+class ReactClassConfig {
+  external factory ReactClassConfig({
+    Function componentWillMount,
+    Function componentDidMount,
+    Function componentWillReceiveProps,
+    Function shouldComponentUpdate,
+    Function componentWillUpdate,
+    Function componentDidUpdate,
+    Function componentWillUnmount,
+    Function getDefaultProps,
+    Function getInitialState,
+    Function render
+  });
+}
+
+@JS()
+@anonymous
+class ReactClass {}
+
+class Internal {
+  Component component;
+  bool isMounted;
+  Map props;
+}
+
+@JS()
+@anonymous
+class InteropProps {
+  external Internal get internal;
+  external String get key;
+  external dynamic get ref;
+
+  external factory InteropProps({Internal internal, String key, dynamic ref});
+}
+
+final EmptyObject emptyJsMap = new EmptyObject();
 
 const PROPS = 'props';
 const INTERNAL = '__internal__';
@@ -18,27 +109,10 @@ const COMPONENT = 'component';
 const IS_MOUNTED = 'isMounted';
 const REFS = 'refs';
 
-newJsObjectEmpty() {
-  return new JsObject(_Object);
-}
-
-final emptyJsMap = newJsObjectEmpty();
-newJsMap(Map map) {
-  var JsMap = newJsObjectEmpty();
-  for (var key in map.keys) {
-    if(map[key] is Map) {
-      JsMap[key] = newJsMap(map[key]);
-    } else {
-      JsMap[key] = map[key];
-    }
-  }
-  return JsMap;
-}
-
 /**
  * Type of [children] must be child or list of childs, when child is JsObject or String
  */
-typedef JsObject ReactComponentFactory(Map props, [dynamic children]);
+typedef ReactElement ReactComponentFactory(Map props, [dynamic children]);
 typedef Component ComponentFactory();
 
 /**
@@ -53,7 +127,7 @@ abstract class ReactComponentFactoryProxy implements Function {
   /**
    * Returns a new rendered component instance with the specified props and children.
    */
-  JsObject call(Map props, [dynamic children]);
+  ReactElement call(Map props, [dynamic children]);
 
   /**
    * Used to implement a variadic version of [call], in which children may be specified as additional options.
@@ -64,30 +138,28 @@ abstract class ReactComponentFactoryProxy implements Function {
 /**
  * A Dart function that creates React JS component instances for Dart components.
  */
-class ReactDartComponentFactoryProxy extends ReactComponentFactoryProxy {
-  final JsFunction reactClass;
-  final JsFunction reactComponentFactory;
+class ReactDartComponentFactoryProxy<TReactElement extends ReactElement> extends ReactComponentFactoryProxy {
+  final ReactClass reactClass;
+  final Function reactComponentFactory;
 
-  ReactDartComponentFactoryProxy(JsFunction reactClass) :
+  ReactDartComponentFactoryProxy(ReactClass reactClass) :
     this.reactClass = reactClass,
-    this.reactComponentFactory = _React.callMethod('createFactory', [reactClass]);
+    this.reactComponentFactory = React.createFactory(reactClass);
 
-  JsFunction get type => reactClass;
+  ReactClass get type => reactClass;
 
-  JsObject call(Map props, [dynamic children]) {
+  TReactElement call(Map props, [dynamic children]) {
     // Convert Iterable children to JsArrays so that the JS can read them.
     // Use JsArrays instead of Lists, because automatic List conversion results in
     // react-id values being cluttered with ".$o:0:0:$_jsObject:" in dart2js-transpiled Dart.
-    if (children is Iterable) {
-      children = new JsArray.from(children);
+    if (children is Iterable && children is! List) {
+      children = children.toList();
     }
 
-    List reactParams = [
+    return reactComponentFactory(
       generateExtendedJsProps(props, children),
       children
-    ];
-
-    return reactComponentFactory.apply(reactParams);
+    );
   }
 
   dynamic noSuchMethod(Invocation invocation) {
@@ -95,10 +167,12 @@ class ReactDartComponentFactoryProxy extends ReactComponentFactoryProxy {
       Map props = invocation.positionalArguments[0];
       List children = invocation.positionalArguments.sublist(1);
 
-      List reactParams = [generateExtendedJsProps(props, children)];
-      reactParams.addAll(children);
+      keyVariadicChildren(children);
 
-      return reactComponentFactory.apply(reactParams);
+      return reactComponentFactory(
+        generateExtendedJsProps(props, children),
+        children
+      );
     }
 
     return super.noSuchMethod(invocation);
@@ -108,7 +182,7 @@ class ReactDartComponentFactoryProxy extends ReactComponentFactoryProxy {
    * Returns a JsObject version of the specified props, preprocessed for consumption by React JS
    * and prepared for consumption by the react-dart wrapper internals.
    */
-  static JsObject generateExtendedJsProps(Map props, dynamic children) {
+  static InteropProps generateExtendedJsProps(Map props, dynamic children) {
     if (children == null) {
       children = [];
     } else if (children is! Iterable) {
@@ -118,33 +192,12 @@ class ReactDartComponentFactoryProxy extends ReactComponentFactoryProxy {
     Map extendedProps = new Map.from(props);
     extendedProps['children'] = children;
 
-    JsObject jsProps = newJsObjectEmpty();
-
-    /**
-     * Transfer over key and ref if they're specified so React JS knows about them.
-     */
-    if (extendedProps.containsKey('key')) {
-      jsProps['key'] = extendedProps['key'];
-    }
-
-    if (extendedProps.containsKey('ref')) {
-      jsProps['ref'] = extendedProps['ref'];
-    }
-
-    /**
-     * Put Dart props inside the internal object.
-     */
-    jsProps[INTERNAL] = {PROPS: extendedProps};
-
-    return jsProps;
+    return new InteropProps(
+        internal: new Internal()..props = extendedProps,
+        key: extendedProps['key'],
+        ref: extendedProps['ref']);
   }
 }
-
-/** TODO Think about using Expandos */
-_getInternal(JsObject jsThis) => jsThis[PROPS][INTERNAL];
-_getProps(JsObject jsThis) => _getInternal(jsThis)[PROPS];
-_getComponent(JsObject jsThis) => _getInternal(jsThis)[COMPONENT];
-_getInternalProps(JsObject jsProps) => jsProps[INTERNAL][PROPS];
 
 ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Iterable<String> skipMethods = const []]) {
 
@@ -159,8 +212,8 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
    *
    * @return jsProsp with internal with component.props and component
    */
-  var getDefaultProps = new JsFunction.withThis((jsThis) => zone.run(() {
-    return newJsObjectEmpty();
+  var getDefaultProps = allowInterop(() => zone.run(() {
+    return new EmptyObject();
   }));
 
   /**
@@ -168,43 +221,43 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
    *
    * @return empty JsObject as default state for javascript react component
    */
-  var getInitialState = new JsFunction.withThis((jsThis) => zone.run(() {
+  var getInitialState = allowInteropCaptureThis((ReactComponent jsThis) => zone.run(() {
 
-    var internal = _getInternal(jsThis);
+    var internal = jsThis.props.internal;
     var redraw = () {
-      if (internal[IS_MOUNTED]) {
-        jsThis.callMethod('setState', [emptyJsMap]);
+      if (internal.isMounted) {
+        jsThis.setState(emptyJsMap);
       }
     };
 
     var getRef = (name) {
-      var ref = jsThis['refs'][name] as JsObject;
+      var ref = jsThis.refs[name];
       if (ref == null) return null;
       if (ref[PROPS][INTERNAL] != null) return ref[PROPS][INTERNAL][COMPONENT];
       else return ref;
     };
 
     var getDOMNode = () {
-      return _React.callMethod('findDOMNode', [jsThis]);
+      return React.findDOMNode(jsThis);
     };
 
     Component component = componentFactory()
-        ..initComponentInternal(internal[PROPS], redraw, getRef, getDOMNode);
+        ..initComponentInternal(internal.props, redraw, getRef, getDOMNode);
 
-    internal[COMPONENT] = component;
-    internal[IS_MOUNTED] = false;
-    internal[PROPS] = component.props;
+    internal.component = component;
+    internal.isMounted = false;
+    internal.props = component.props;
 
-    _getComponent(jsThis).initStateInternal();
-    return newJsObjectEmpty();
+    component.initStateInternal();
+    return new EmptyObject();
   }));
 
   /**
    * only wrap componentWillMount
    */
-  var componentWillMount = new JsFunction.withThis((jsThis) => zone.run(() {
-    _getInternal(jsThis)[IS_MOUNTED] = true;
-    _getComponent(jsThis)
+  var componentWillMount = allowInteropCaptureThis((ReactComponent jsThis) => zone.run(() {
+    jsThis.props.internal.isMounted = true;
+    jsThis.props.internal.component
         ..componentWillMount()
         ..transferComponentState();
   }));
@@ -212,22 +265,22 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
   /**
    * only wrap componentDidMount
    */
-  var componentDidMount = new JsFunction.withThis((JsObject jsThis) => zone.run(() {
+  var componentDidMount = allowInteropCaptureThis((ReactComponent jsThis) => zone.run(() {
     //you need to get dom node by calling findDOMNode
-    var rootNode = _React.callMethod('findDOMNode', [jsThis]);
-    _getComponent(jsThis).componentDidMount(rootNode);
+    var rootNode = React.findDOMNode(jsThis);
+    jsThis.props.internal.component.componentDidMount(rootNode);
   }));
 
-  _getNextProps(Component component, newArgs) {
-    var newProps = _getInternalProps(newArgs);
+  _getNextProps(Component component, InteropProps newArgs) {
+    var newProps = newArgs.internal.props;
     return {}
       ..addAll(component.getDefaultProps())
-      ..addAll(newProps != null ? newProps : {});
+      ..addAll(newProps ?? {});
   }
 
-  _afterPropsChange(Component component, newArgs) {
+  _afterPropsChange(Component component, InteropProps newArgs) {
     /** add component to newArgs to keep component in internal */
-    newArgs[INTERNAL][COMPONENT] = component;
+    newArgs.internal.component = component;
 
     /** update component.props */
     component.props = _getNextProps(component, newArgs);
@@ -240,8 +293,8 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
    * Wrap componentWillReceiveProps
    */
   var componentWillReceiveProps =
-      new JsFunction.withThis((jsThis, newArgs, [reactInternal]) => zone.run(() {
-    var component = _getComponent(jsThis);
+      allowInteropCaptureThis((ReactComponent jsThis, InteropProps newArgs, [reactInternal]) => zone.run(() {
+    var component = jsThis.props.internal.component;
     component.componentWillReceiveProps(_getNextProps(component, newArgs));
   }));
 
@@ -250,8 +303,8 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
    * and if shoudln't update, update props and transfer state.
    */
   var shouldComponentUpdate =
-      new JsFunction.withThis((jsThis, newArgs, nextState, nextContext) => zone.run(() {
-    Component component  = _getComponent(jsThis);
+      allowInteropCaptureThis((ReactComponent jsThis, InteropProps newArgs, nextState, nextContext) => zone.run(() {
+    Component component = jsThis.props.internal.component;
     /** use component.nextState where are stored nextState */
     if (component.shouldComponentUpdate(_getNextProps(component, newArgs),
                                         component.nextState)) {
@@ -270,8 +323,8 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
    * wrap component.componentWillUpdate and after that update props and transfer state
    */
   var componentWillUpdate =
-      new JsFunction.withThis((jsThis, newArgs, nextState, [reactInternal]) => zone.run(() {
-    Component component  = _getComponent(jsThis);
+      allowInteropCaptureThis((ReactComponent jsThis, newArgs, nextState, [reactInternal]) => zone.run(() {
+    Component component = jsThis.props.internal.component;
     component.componentWillUpdate(_getNextProps(component, newArgs),
                                   component.nextState);
     _afterPropsChange(component, newArgs);
@@ -281,56 +334,46 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
    * wrap componentDidUpdate and use component.prevState which was trasnfered from state in componentWillUpdate.
    */
   var componentDidUpdate =
-      new JsFunction.withThis((JsObject jsThis, prevProps, prevState, prevContext) => zone.run(() {
-    var prevInternalProps = _getInternalProps(prevProps);
+      allowInteropCaptureThis((ReactComponent jsThis, InteropProps prevProps, prevState, prevContext) => zone.run(() {
+    var prevInternalProps = prevProps.internal.props;
     //you don't get root node as parameter but need to get it directly
-    var rootNode = _React.callMethod('findDOMNode', [jsThis]);
-    Component component = _getComponent(jsThis);
+    var rootNode = React.findDOMNode(jsThis);
+    Component component = jsThis.props.internal.component;
     component.componentDidUpdate(prevInternalProps, component.prevState, rootNode);
   }));
 
   /**
    * only wrap componentWillUnmount
    */
-  var componentWillUnmount =
-      new JsFunction.withThis((jsThis, [reactInternal]) => zone.run(() {
-    _getInternal(jsThis)[IS_MOUNTED] = false;
-    _getComponent(jsThis).componentWillUnmount();
+  var componentWillUnmount = allowInteropCaptureThis((ReactComponent jsThis, [reactInternal]) => zone.run(() {
+    var internal = jsThis.props.internal;
+    internal
+      ..isMounted = false
+      ..componentWillUnmount();
   }));
 
   /**
    * only wrap render
    */
-  var render = new JsFunction.withThis((jsThis) => zone.run(() {
-    return _getComponent(jsThis).render();
+  var render = allowInteropCaptureThis((ReactComponent jsThis) => zone.run(() {
+    return jsThis.props.internal.component.render();
   }));
-
-  var skipableMethods = ['componentDidMount', 'componentWillReceiveProps',
-                         'shouldComponentUpdate', 'componentDidUpdate',
-                         'componentWillUnmount'];
-
-  removeUnusedMethods(Map originalMap, Iterable removeMethods) {
-    removeMethods.where((m) => skipableMethods.contains(m)).forEach((m) => originalMap.remove(m));
-    return originalMap;
-  }
 
   /**
    * create reactComponent with wrapped functions
    */
-  JsFunction reactComponentClass = _React.callMethod('createClass', [newJsMap(
-    removeUnusedMethods({
-      'componentWillMount': componentWillMount,
-      'componentDidMount': componentDidMount,
-      'componentWillReceiveProps': componentWillReceiveProps,
-      'shouldComponentUpdate': shouldComponentUpdate,
-      'componentWillUpdate': componentWillUpdate,
-      'componentDidUpdate': componentDidUpdate,
-      'componentWillUnmount': componentWillUnmount,
-      'getDefaultProps': getDefaultProps,
-      'getInitialState': getInitialState,
-      'render': render
-    }, skipMethods)
-  )]);
+  ReactClass reactComponentClass = React.createClass(new ReactClassConfig(
+      componentWillMount: componentWillMount,
+      componentDidMount: componentDidMount,
+      componentWillReceiveProps: componentWillReceiveProps,
+      shouldComponentUpdate: shouldComponentUpdate,
+      componentWillUpdate: componentWillUpdate,
+      componentDidUpdate: componentDidUpdate,
+      componentWillUnmount: componentWillUnmount,
+      getDefaultProps: getDefaultProps,
+      getInitialState: getInitialState,
+      render: render
+  ));
 
   /**
    * return ReactComponentFactory which produce react component with set props and children[s]
@@ -353,19 +396,18 @@ class ReactDomComponentFactoryProxy extends ReactComponentFactoryProxy {
   String get type => name;
 
   @override
-  JsObject call(Map props, [dynamic children]) {
+  ReactElement call(Map props, [dynamic children]) {
     convertProps(props);
-    
+    var jsifiedProps = unwrap(new JsObject.jsify(props));
+
     // Convert Iterable children to JsArrays so that the JS can read them.
     // Use JsArrays instead of Lists, because automatic List conversion results in
     // react-id values being cluttered with ".$o:0:0:$_jsObject:" in dart2js-transpiled Dart.
-    if (children is Iterable) {
-      children = new JsArray.from(children);
+    if (children is Iterable && children is! List) {
+      children = children.toList();
     }
 
-    List reactParams = [name, newJsMap(props), children];
-
-    return _React.callMethod('createElement', reactParams);
+    return React.createElement(name, jsifiedProps, children);
   }
 
   @override
@@ -375,11 +417,11 @@ class ReactDomComponentFactoryProxy extends ReactComponentFactoryProxy {
       List children = invocation.positionalArguments.sublist(1);
 
       convertProps(props);
+      var jsifiedProps = unwrap(new JsObject.jsify(props));
 
-      List reactParams = [name, newJsMap(props)];
-      reactParams.addAll(children);
+      keyVariadicChildren(children);
 
-      return _React.callMethod('createElement', reactParams);
+      return React.createElement(name, jsifiedProps, children);
     }
 
     return super.noSuchMethod(invocation);
@@ -391,8 +433,14 @@ class ReactDomComponentFactoryProxy extends ReactComponentFactoryProxy {
   static void convertProps(Map props) {
     _convertBoundValues(props);
     _convertEventHandlers(props);
-    if (props.containsKey('style')) {
-      props['style'] = new JsObject.jsify(props['style']);
+  }
+}
+
+void keyVariadicChildren(List children) {
+  for (var i=0; i<children.length; i++) {
+    var child = children[i];
+    if (child is JsObject && child['key'] == null) {
+      child['key'] = '$i';
     }
   }
 }
@@ -622,33 +670,16 @@ Set _syntheticUIEvents = new Set.from(["onScroll",]);
 
 Set _syntheticWheelEvents = new Set.from(["onWheel",]);
 
-
-JsObject _render(JsObject component, HtmlElement element) {
-  return _React.callMethod('render', [component, element]);
-}
-
-String _renderToString(JsObject component) {
-  return _React.callMethod('renderToString', [component]);
-}
-
-String _renderToStaticMarkup(JsObject component) {
-  return _React.callMethod('renderToStaticMarkup', [component]);
-}
-
-bool _unmountComponentAtNode(HtmlElement element) {
-  return _React.callMethod('unmountComponentAtNode', [element]);
-}
-
 dynamic _findDomNode(component) {
   // if it's a dart component class, the mounted dom is returned from getDOMNode
   // which has jsComponent closured inside and calls on it findDOMNode
   if (component is Component) return component.getDOMNode();
   //otherwise we have js component so pass it in findDOM node
-  return _React.callMethod('findDOMNode', [component]);
+  return React.findDOMNode(component);
 }
 
 void setClientConfiguration() {
-  _React.callMethod('initializeTouchEvents', [true]);
-  setReactConfiguration(_reactDom, _registerComponent, _render, _renderToString,
-      _renderToStaticMarkup, _unmountComponentAtNode, _findDomNode);
+  React.initializeTouchEvents(true);
+  setReactConfiguration(_reactDom, _registerComponent, React.render, React.renderToString,
+      React.renderToStaticMarkup, React.unmountComponentAtNode, _findDomNode);
 }
