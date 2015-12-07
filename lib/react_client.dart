@@ -10,7 +10,34 @@ import "dart:js";
 import "dart:html";
 import "dart:async";
 
-/// Hacky way of getting the object proxied JsObject associated
+/// Hacky (and hopefully temporary) way of getting the object proxied [JsObject].
+///
+/// Depends the following JS:
+///     function unwrap(obj) {
+///       return (obj && obj._jsObject) || obj;
+///     }
+///
+/// ### Explanation
+///
+/// In Dartium, native JavaScript objects proxied by the `dart:js` and `package:js`
+/// are properly unwrapped when passed to the JS side via `dart:js` method calls.
+///
+/// In dart2js code, however, the [JsObject] doesn't get unwrapped.
+///
+/// #### Example:
+///
+/// Dart:
+///
+///     JsObject jsProps = new JsObject.jsify({'value': 'test value'});
+///     React.createElement('input', jsProps)
+///
+/// Expected value of props argument passed into `createElement`:
+///     {value: 'test value'}
+///
+/// Value of props argument passed into `createElement` with dart2js:
+///     {
+///       _jsObject: {value: 'test value'}
+///     }
 @JS()
 external dynamic unwrap(JsObject obj);
 
@@ -192,10 +219,21 @@ class ReactDartComponentFactoryProxy<TReactElement extends ReactElement> extends
     Map extendedProps = new Map.from(props);
     extendedProps['children'] = children;
 
-    return new InteropProps(
-        internal: new Internal()..props = extendedProps,
+    var internal = new Internal()..props = extendedProps;
+
+    var interopProps;
+    // Don't pass a key into InteropProps if one isn't defined, so that the value will
+    // be `undefined` in the JS, which is ignored by React, whereas `null` isn't.
+    if (extendedProps.containsKey('key')) {
+      interopProps = new InteropProps(internal: internal,
         key: extendedProps['key'],
         ref: extendedProps['ref']);
+    } else {
+      interopProps = new InteropProps(internal: internal,
+        ref: extendedProps['ref']);
+    }
+
+    return interopProps;
   }
 }
 
@@ -436,8 +474,12 @@ class ReactDomComponentFactoryProxy extends ReactComponentFactoryProxy {
   }
 }
 
-void keyVariadicChildren(List children) {
-  for (var i=0; i<children.length; i++) {
+/// Add keys to the items in [children] corresponding to their indices so that React
+/// doesn't emit key warnings.
+///
+/// ___Only for use with variadic children.___
+void keyVariadicChildren(List<dynamic> children) {
+  for (int i = 0; i < children.length; i++) {
     var child = children[i];
     if (child is JsObject && child['key'] == null) {
       child['key'] = '$i';
