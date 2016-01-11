@@ -194,7 +194,7 @@ class ReactDartComponentFactoryProxy<TReactElement extends ReactElement> extends
       Map props = invocation.positionalArguments[0];
       List children = invocation.positionalArguments.sublist(1);
 
-      keyVariadicChildren(children);
+      markChildrenValidated(children);
 
       return reactComponentFactory(
         generateExtendedJsProps(props, children),
@@ -457,7 +457,7 @@ class ReactDomComponentFactoryProxy extends ReactComponentFactoryProxy {
       convertProps(props);
       var jsifiedProps = unwrap(new JsObject.jsify(props));
 
-      keyVariadicChildren(children);
+      markChildrenValidated(children);
 
       return React.createElement(name, jsifiedProps, children);
     }
@@ -474,17 +474,18 @@ class ReactDomComponentFactoryProxy extends ReactComponentFactoryProxy {
   }
 }
 
-/// Add keys to the items in [children] corresponding to their indices so that React
-/// doesn't emit key warnings.
+/// Mark each child in children as validated so that React doesn't emit key warnings.
 ///
 /// ___Only for use with variadic children.___
-void keyVariadicChildren(List<dynamic> children) {
-  for (int i = 0; i < children.length; i++) {
-    var child = children[i];
-    if (child is JsObject && child['key'] == null) {
-      child['key'] = '$i';
+void markChildrenValidated(List<dynamic> children) {
+  children.forEach((child) {
+    if (child is JsObject) {
+      var store = child['_store'];
+      if (store != null) {
+        store['validated'] = true;
     }
   }
+  });
 }
 
 /**
