@@ -385,9 +385,8 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
    */
   var componentWillUnmount = allowInteropCaptureThis((ReactComponent jsThis, [reactInternal]) => zone.run(() {
     var internal = jsThis.props.internal;
-    internal
-      ..isMounted = false
-      ..componentWillUnmount();
+    internal.isMounted = false;
+    internal.component.componentWillUnmount();
   }));
 
   /**
