@@ -110,7 +110,9 @@ class ReactClassConfig {
 
 @JS()
 @anonymous
-class ReactClass {}
+class ReactClass {
+  external set displayName(String value);
+}
 
 class Internal {
   Component component;
