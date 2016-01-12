@@ -19,16 +19,15 @@ abstract class Component {
    */
   bind(key) => [state[key], (value) => setState({key: value})];
 
-  initComponentInternal(props, _jsRedraw, [ref = null, getDOMNode = null]) {
+  initComponentInternal(props, _jsRedraw, [ref = null, getDOMNode = null, defaultProps]) {
     this._jsRedraw = _jsRedraw;
     this.ref = ref;
     this.getDOMNode = getDOMNode;
-    _initProps(props);
+    _initProps(props, defaultProps);
   }
 
-  _initProps(props) {
-    this.props = {}
-      ..addAll(getDefaultProps())
+  _initProps(props, defaultProps) {
+    this.props = new Map.from(defaultProps)
       ..addAll(props);
   }
 
@@ -120,185 +119,90 @@ abstract class Component {
 
 /** Synthetic event */
 
-class SyntheticEvent {
+abstract class SyntheticEvent {
+  bool get bubbles;
+  bool get cancelable;
+  get currentTarget;
+  bool get defaultPrevented;
+  num get eventPhase;
+  bool get isTrusted;
+  get nativeEvent;
+  get target;
+  num get timeStamp;
+  String get type;
 
-  final bool bubbles;
-  final bool cancelable;
-  final /*DOMEventTarget*/ currentTarget;
-  bool _defaultPrevented;
-  dynamic _preventDefault;
-  final dynamic stopPropagation;
-  bool get defaultPrevented => _defaultPrevented;
-  final num eventPhase;
-  final bool isTrusted;
-  final /*DOMEvent*/ nativeEvent;
-  void preventDefault() {
-    _defaultPrevented = true;
-    _preventDefault();
-  }
-  final /*DOMEventTarget*/ target;
-  final num timeStamp;
-  final String type;
-
-  SyntheticEvent(
-      this.bubbles,
-      this.cancelable,
-      this.currentTarget,
-      this._defaultPrevented,
-      this._preventDefault,
-      this.stopPropagation,
-      this.eventPhase,
-      this.isTrusted,
-      this.nativeEvent,
-      this.target,
-      this.timeStamp,
-      this.type){}
+  void stopPropagation();
+  void preventDefault();
 }
 
-class SyntheticClipboardEvent extends SyntheticEvent {
-
-  final clipboardData;
-
-  SyntheticClipboardEvent(bubbles, cancelable, currentTarget, _defaultPrevented,
-      _preventDefault, stopPropagation, eventPhase, isTrusted, nativeEvent, target,
-      timeStamp, type, this.clipboardData) : super( bubbles, cancelable, currentTarget, _defaultPrevented,
-          _preventDefault, stopPropagation, eventPhase, isTrusted, nativeEvent, target,
-          timeStamp, type){}
-
+abstract class SyntheticClipboardEvent extends SyntheticEvent {
+  get clipboardData;
 }
 
-class SyntheticKeyboardEvent extends SyntheticEvent {
-
-  final bool altKey;
-  final String char;
-  final bool ctrlKey;
-  final String locale;
-  final num location;
-  final String key;
-  final bool metaKey;
-  final bool repeat;
-  final bool shiftKey;
-  final num keyCode;
-  final num charCode;
-
-  SyntheticKeyboardEvent(bubbles, cancelable, currentTarget, _defaultPrevented,
-      _preventDefault, stopPropagation, eventPhase, isTrusted, nativeEvent, target,
-      timeStamp, type, this.altKey, this.char, this.charCode, this.ctrlKey,
-      this.locale, this.location, this.key, this.keyCode, this.metaKey,
-      this.repeat, this.shiftKey) :
-        super( bubbles, cancelable, currentTarget, _defaultPrevented,
-          _preventDefault, stopPropagation, eventPhase, isTrusted, nativeEvent, target,
-          timeStamp, type){}
-
+abstract class SyntheticKeyboardEvent extends SyntheticEvent {
+  bool get altKey;
+  String get char;
+  bool get ctrlKey;
+  String get locale;
+  num get location;
+  String get key;
+  bool get metaKey;
+  bool get repeat;
+  bool get shiftKey;
+  num get keyCode;
+  num get charCode;
 }
 
-class SyntheticFocusEvent extends SyntheticEvent {
-
-  final /*DOMEventTarget*/ relatedTarget;
-
-  SyntheticFocusEvent(bubbles, cancelable, currentTarget, _defaultPrevented,
-      _preventDefault, stopPropagation, eventPhase, isTrusted, nativeEvent, target,
-      timeStamp, type, this.relatedTarget) :
-        super( bubbles, cancelable, currentTarget, _defaultPrevented,
-            _preventDefault, stopPropagation, eventPhase, isTrusted, nativeEvent, target,
-            timeStamp, type){}
-
+abstract class SyntheticFocusEvent extends SyntheticEvent {
+  /*EventTarget*/ get relatedTarget;
 }
 
-class SyntheticFormEvent extends SyntheticEvent {
+abstract class SyntheticFormEvent extends SyntheticEvent {}
 
-  SyntheticFormEvent(bubbles, cancelable, currentTarget, _defaultPrevented,
-      _preventDefault, stopPropagation, eventPhase, isTrusted, nativeEvent, target,
-      timeStamp, type) : super( bubbles, cancelable, currentTarget, _defaultPrevented,
-          _preventDefault, stopPropagation, eventPhase, isTrusted, nativeEvent, target,
-          timeStamp, type){}
-
+abstract class SyntheticDataTransfer {
+  String get dropEffect;
+  String get effectAllowed;
+  List/*<File>*/ get files;
+  List<String> get types;
 }
 
-class SyntheticDataTransfer {
-  final String dropEffect;
-  final String effectAllowed;
-  final List/*<File>*/ files;
-  final List<String> types;
-
-  SyntheticDataTransfer(this.dropEffect, this.effectAllowed, this.files, this.types);
+abstract class SyntheticMouseEvent extends SyntheticEvent {
+  bool get altKey;
+  num get button;
+  num get buttons;
+  num get clientX;
+  num get clientY;
+  bool get ctrlKey;
+  SyntheticDataTransfer get dataTransfer;
+  bool get metaKey;
+  num get pageX;
+  num get pageY;
+  /*DOMEventTarget*/get relatedTarget;
+  num get screenX;
+  num get screenY;
+  bool get shiftKey;
 }
 
-class SyntheticMouseEvent extends SyntheticEvent {
-
-  final bool altKey;
-  final num button;
-  final num buttons;
-  final num clientX;
-  final num clientY;
-  final bool ctrlKey;
-  final SyntheticDataTransfer dataTransfer;
-  final bool metaKey;
-  final num pageX;
-  final num pageY;
-  final /*DOMEventTarget*/relatedTarget;
-  final num screenX;
-  final num screenY;
-  final bool shiftKey;
-
-  SyntheticMouseEvent(bubbles, cancelable, currentTarget, _defaultPrevented,
-      _preventDefault, stopPropagation, eventPhase, isTrusted, nativeEvent, target,
-      timeStamp, type, this.altKey, this.button, this.buttons, this.clientX, this.clientY,
-      this.ctrlKey, this.dataTransfer, this.metaKey, this.pageX, this.pageY, this.relatedTarget,
-      this.screenX, this.screenY, this.shiftKey) :
-        super( bubbles, cancelable, currentTarget, _defaultPrevented,
-            _preventDefault, stopPropagation, eventPhase, isTrusted, nativeEvent, target,
-            timeStamp, type){}
-
+abstract class SyntheticTouchEvent extends SyntheticEvent {
+  bool get altKey;
+  /*DOMTouchList*/ get changedTouches;
+  bool get ctrlKey;
+  bool get metaKey;
+  bool get shiftKey;
+  /*DOMTouchList*/ get targetTouches;
+  /*DOMTouchList*/ get touches;
 }
 
-class SyntheticTouchEvent extends SyntheticEvent {
-
-  final bool altKey;
-  final /*DOMTouchList*/ changedTouches;
-  final bool ctrlKey;
-  final bool metaKey;
-  final bool shiftKey;
-  final /*DOMTouchList*/ targetTouches;
-  final /*DOMTouchList*/ touches;
-
-  SyntheticTouchEvent(bubbles, cancelable, currentTarget, _defaultPrevented,
-      _preventDefault, stopPropagation, eventPhase, isTrusted, nativeEvent, target,
-      timeStamp, type, this.altKey, this.changedTouches, this.ctrlKey, this.metaKey,
-      this.shiftKey, this.targetTouches, this.touches) :
-        super( bubbles, cancelable, currentTarget, _defaultPrevented,
-            _preventDefault, stopPropagation, eventPhase, isTrusted, nativeEvent, target,
-            timeStamp, type){}
-
+abstract class SyntheticUIEvent extends SyntheticEvent {
+  num get detail;
+  /*DOMAbstractView*/ get view;
 }
 
-class SyntheticUIEvent extends SyntheticEvent {
-
-  final num detail;
-  final /*DOMAbstractView*/ view;
-
-  SyntheticUIEvent(bubbles, cancelable, currentTarget, _defaultPrevented,
-      _preventDefault, stopPropagation, eventPhase, isTrusted, nativeEvent, target,
-      timeStamp, type, this.detail, this.view) : super( bubbles, cancelable, currentTarget, _defaultPrevented,
-          _preventDefault, stopPropagation, eventPhase, isTrusted, nativeEvent, target,
-          timeStamp, type){}
-
-}
-
-class SyntheticWheelEvent extends SyntheticEvent {
-
-  final num deltaX;
-  final num deltaMode;
-  final num deltaY;
-  final num deltaZ;
-
-  SyntheticWheelEvent(bubbles, cancelable, currentTarget, _defaultPrevented,
-      _preventDefault, stopPropagation, eventPhase, isTrusted, nativeEvent, target,
-      timeStamp, type, this.deltaX, this.deltaMode, this.deltaY, this.deltaZ) : super( bubbles, cancelable, currentTarget, _defaultPrevented,
-          _preventDefault, stopPropagation, eventPhase, isTrusted, nativeEvent, target,
-          timeStamp, type){}
-
-
+abstract class SyntheticWheelEvent extends SyntheticEvent {
+  num get deltaX;
+  num get deltaMode;
+  num get deltaY;
+  num get deltaZ;
 }
 
 /**
