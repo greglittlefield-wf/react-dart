@@ -6,73 +6,41 @@ library react_client;
 
 import "dart:async";
 import "dart:html";
-import "dart:js" as old_js;
 
 import "package:js/js.dart";
 import "package:react/react.dart";
 import "package:react/react_client/synthetic_event.dart" as events;
 
-/// Hacky (and hopefully temporary) way of getting the object proxied [JsObject].
-///
-/// Depends the following JS:
-///     function unwrap(obj) {
-///       return (obj && obj._jsObject) || obj;
-///     }
-///
-/// ### Explanation
-///
-/// In Dartium, native JavaScript objects proxied by the `dart:js` and `package:js`
-/// are properly unwrapped when passed to the JS side via `dart:js` method calls.
-///
-/// In dart2js code, however, the [JsObject] doesn't get unwrapped.
-///
-/// #### Example:
-///
-/// Dart:
-///
-///     JsObject jsProps = new JsObject.jsify({'value': 'test value'});
-///     React.createElement('input', jsProps)
-///
-/// Expected value of props argument passed into `createElement`:
-///     {value: 'test value'}
-///
-/// Value of props argument passed into `createElement` with dart2js:
-///     {
-///       _jsObject: {value: 'test value'}
-///     }
-@JS()
-external dynamic _unwrapJsObject(old_js.JsObject obj);
-@JS()
-external dynamic _getProperty(jsObj, String key);
-
 @JS('eval')
 external dynamic _eval(String source);
 
-typedef dynamic _UnwrapFn(old_js.JsObject obj);
+@JS()
+external dynamic _getProperty(jsObj, String key);
+
+@JS()
+external dynamic _setProperty(jsObj, String key, value);
+
 typedef dynamic _GetPropertyFn(jsObj, String key);
-
-final _UnwrapFn unwrap = (() {
-  _eval(r'''
-    function _unwrapJsObject(obj) {
-      return (obj && (obj._jsObject || obj._js$_jsObject)) || obj;
-    }
-  ''');
-
-  return (old_js.JsObject obj) {
-    return _unwrapJsObject(obj);
-  };
-})();
+typedef dynamic _SetPropertyFn(jsObj, String key, value);
 
 final _GetPropertyFn getProperty = (() {
   _eval(r'''
     function _getProperty(obj, key) {
-      return ((obj && (obj._jsObject || obj._js$_jsObject)) || obj)[key];
+      return obj[key];
     }
   ''');
 
-  return (old_js.JsObject obj, String key) {
-    return _getProperty(obj, key);
-  };
+  return _getProperty;
+})();
+
+final _SetPropertyFn setProperty = (() {
+  _eval(r'''
+    function _setProperty(obj, key, value) {
+      return obj[key] = value;
+    }
+  ''');
+
+  return _setProperty;
 })();
 
 
@@ -207,11 +175,9 @@ abstract class ReactComponentFactoryProxy implements Function {
   dynamic noSuchMethod(Invocation invocation);
 }
 
-jsifyChildren(children) {
+dynamic jsifyChildren(dynamic children) {
   if (children is Iterable) {
-    return children.map(jsifyChildren).toList(growable: false);
-  } else if (children is old_js.JsObject) {
-    return unwrap(children);
+    return children.toList(growable: false);
   } else {
     return children;
   }
@@ -231,9 +197,9 @@ class ReactDartComponentFactoryProxy<TReactElement extends ReactElement> extends
   ReactClass get type => reactClass;
 
   TReactElement call(Map props, [dynamic children]) {
-    // Convert Iterable children to JsArrays so that the JS can read them.
-    // Use JsArrays instead of Lists, because automatic List conversion results in
-    // react-id values being cluttered with ".$o:0:0:$_jsObject:" in dart2js-transpiled Dart.
+    // Convert Iterable children to JsArrays so that the JS can read them,
+    // and so they don't get iterated twice when passed to the Dart component
+    // and to the JS component.
     if (children is Iterable && children is! List) {
       children = children.toList();
     }
@@ -361,17 +327,15 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
   /**
    * only wrap componentDidMount
    */
-  var componentDidMount = allowInteropCaptureThis((ReactComponent jsThis) => zone.run(() {
-    //you need to get dom node by calling findDOMNode
-    var rootNode = React.findDOMNode(jsThis);
-    jsThis.props.internal.component.componentDidMount(rootNode);
-  }));
+  var componentDidMount = allowInteropCaptureThis((ReactComponent jsThis) => zone.run(
+      jsThis.props.internal.component.componentDidMount
+  ));
 
   _getNextProps(Component component, InteropProps newArgs) {
     var nextProps = new Map.from(defaultProps);
 
     var newProps = newArgs.internal.props;
-    if (defaultProps != null) {
+    if (newProps != null) {
       nextProps.addAll(newProps);
     }
 
@@ -383,7 +347,7 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
     newArgs.internal.component = component;
 
     /** update component.props */
-    component.props = _getNextProps(component, newArgs);
+    component.props = component.nextProps;
 
     /** update component.state */
     component.transferComponentState();
@@ -395,18 +359,20 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
   var componentWillReceiveProps =
       allowInteropCaptureThis((ReactComponent jsThis, InteropProps newArgs, [reactInternal]) => zone.run(() {
     var component = jsThis.props.internal.component;
-    component.componentWillReceiveProps(_getNextProps(component, newArgs));
+    var nextProps = _getNextProps(component, newArgs);
+    component.nextProps = nextProps;
+    component.componentWillReceiveProps(nextProps);
   }));
 
   /**
    * count nextProps from jsNextProps, get result from component,
-   * and if shoudln't update, update props and transfer state.
+   * and if shouldn't update, update props and transfer state.
    */
   var shouldComponentUpdate =
       allowInteropCaptureThis((ReactComponent jsThis, InteropProps newArgs, nextState, nextContext) => zone.run(() {
     Component component = jsThis.props.internal.component;
     /** use component.nextState where are stored nextState */
-    if (component.shouldComponentUpdate(_getNextProps(component, newArgs),
+    if (component.shouldComponentUpdate(component.nextProps,
                                         component.nextState)) {
       return true;
     } else {
@@ -423,9 +389,9 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
    * wrap component.componentWillUpdate and after that update props and transfer state
    */
   var componentWillUpdate =
-      allowInteropCaptureThis((ReactComponent jsThis, newArgs, nextState, [reactInternal]) => zone.run(() {
+      allowInteropCaptureThis((ReactComponent jsThis, newArgs, nextState, [nextContext]) => zone.run(() {
     Component component = jsThis.props.internal.component;
-    component.componentWillUpdate(_getNextProps(component, newArgs),
+    component.componentWillUpdate(component.nextProps,
                                   component.nextState);
     _afterPropsChange(component, newArgs);
   }));
@@ -436,10 +402,8 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
   var componentDidUpdate =
       allowInteropCaptureThis((ReactComponent jsThis, InteropProps prevProps, prevState, prevContext) => zone.run(() {
     var prevInternalProps = prevProps.internal.props;
-    //you don't get root node as parameter but need to get it directly
-    var rootNode = React.findDOMNode(jsThis);
     Component component = jsThis.props.internal.component;
-    component.componentDidUpdate(prevInternalProps, component.prevState, rootNode);
+    component.componentDidUpdate(prevInternalProps, component.prevState);
   }));
 
   /**
@@ -498,19 +462,18 @@ class ReactDomComponentFactoryProxy extends ReactComponentFactoryProxy {
 
   final Function factory;
 
+  static jsifyProps(Map props) {
+    var newObj = new EmptyObject();
+    props.forEach((key, value) {
+      setProperty(newObj, key, value is Map ? jsifyProps(value) : value);
+    });
+    return newObj;
+  }
+
   @override
   ReactElement call(Map props, [dynamic children]) {
     convertProps(props);
-    var jsifiedProps = new old_js.JsObject.jsify(props);
-
-    // Convert Iterable children to JsArrays so that the JS can read them.
-    // Use JsArrays instead of Lists, because automatic List conversion results in
-    // react-id values being cluttered with ".$o:0:0:$_jsObject:" in dart2js-transpiled Dart.
-    if (children is Iterable && children is! List) {
-      children = children.toList();
-    }
-
-    return factory(unwrap(jsifiedProps), jsifyChildren(children));
+    return factory(jsifyProps(props), jsifyChildren(children));
   }
 
   @override
@@ -520,11 +483,9 @@ class ReactDomComponentFactoryProxy extends ReactComponentFactoryProxy {
       List children = invocation.positionalArguments.sublist(1);
 
       convertProps(props);
-      var jsifiedProps = new old_js.JsObject.jsify(props);
-
       markChildrenValidated(children);
 
-      return factory(unwrap(jsifiedProps), jsifyChildren(children));
+      return factory(jsifyProps(props), jsifyChildren(children));
     }
 
     return super.noSuchMethod(invocation);
@@ -543,9 +504,9 @@ class ReactDomComponentFactoryProxy extends ReactComponentFactoryProxy {
 /// ___Only for use with variadic children.___
 void markChildrenValidated(List<dynamic> children) {
   children.forEach((dynamic child) {
-    // Keep `child is ReactElement` check at the end to work around dart2js bug: https://github.com/dart-lang/sdk/issues/25419
-    if (child != null && child is! String && child is! bool && child is! num && child is ReactElement) {
-      child._store?.validated = true;
+    // Use `isValidElement` since `is ReactElement` doesn't behave as expected.
+    if (React.isValidElement(child)) {
+      (child as ReactElement)._store?.validated = true;
     }
   });
 }
@@ -564,36 +525,34 @@ _reactDom(String name) {
  */
 _convertEventHandlers(Map args) {
   var zone = Zone.current;
-  args.forEach((key, value) {
-    if (value == null) {
-      // If the handler is null, don't attempt to wrap/call it.
-      return;
+  args.forEach((propKey, value) {
+    var eventFactory = _eventPropKeyToEventFactory[propKey];
+    if (eventFactory != null && value != null) {
+      args[propKey] = allowInterop((event, [String domId]) => zone.run(() {
+        value(eventFactory(event));
+      }));
     }
-    var eventFactory;
-    if (_syntheticClipboardEvents.contains(key)) {
-      eventFactory = syntheticClipboardEventFactory;
-    } else if (_syntheticKeyboardEvents.contains(key)) {
-      eventFactory = syntheticKeyboardEventFactory;
-    } else if (_syntheticFocusEvents.contains(key)) {
-      eventFactory = syntheticFocusEventFactory;
-    } else if (_syntheticFormEvents.contains(key)) {
-      eventFactory = syntheticFormEventFactory;
-    } else if (_syntheticMouseEvents.contains(key)) {
-      eventFactory = syntheticMouseEventFactory;
-    } else if (_syntheticTouchEvents.contains(key)) {
-      eventFactory = syntheticTouchEventFactory;
-    } else if (_syntheticUIEvents.contains(key)) {
-      eventFactory = syntheticUIEventFactory;
-    } else if (_syntheticWheelEvents.contains(key)) {
-      eventFactory = syntheticWheelEventFactory;
-    } else return;
-    args[key] = (old_js.JsObject e, [String domId]) => zone.run(() {
-      value(eventFactory(unwrap(e)));
-    });
   });
 }
 
-// TODO better way to do this?
+/// A mapping from event prop keys to their respective event factories.
+///
+/// Used in [_convertEventHandlers] for efficient event handler conversion.
+final Map<String, Function> _eventPropKeyToEventFactory = (() {
+  var map = <String, Function>{};
+
+  _syntheticClipboardEvents.forEach((eventPropKey) => map[eventPropKey] = syntheticClipboardEventFactory);
+  _syntheticKeyboardEvents.forEach((eventPropKey)  => map[eventPropKey] = syntheticKeyboardEventFactory);
+  _syntheticFocusEvents.forEach((eventPropKey)     => map[eventPropKey] = syntheticFocusEventFactory);
+  _syntheticFormEvents.forEach((eventPropKey)      => map[eventPropKey] = syntheticFormEventFactory);
+  _syntheticMouseEvents.forEach((eventPropKey)     => map[eventPropKey] = syntheticMouseEventFactory);
+  _syntheticTouchEvents.forEach((eventPropKey)     => map[eventPropKey] = syntheticTouchEventFactory);
+  _syntheticUIEvents.forEach((eventPropKey)        => map[eventPropKey] = syntheticUIEventFactory);
+  _syntheticWheelEvents.forEach((eventPropKey)     => map[eventPropKey] = syntheticWheelEventFactory);
+
+  return map;
+})();
+
 events.SyntheticClipboardEvent syntheticClipboardEventFactory(e) => e as events.SyntheticClipboardEvent;
 events.SyntheticKeyboardEvent  syntheticKeyboardEventFactory(e)  => e as events.SyntheticKeyboardEvent;
 events.SyntheticFocusEvent     syntheticFocusEventFactory(e)     => e as events.SyntheticFocusEvent;

@@ -29,6 +29,7 @@ abstract class Component {
   _initProps(props, defaultProps) {
     this.props = new Map.from(defaultProps)
       ..addAll(props);
+    this.nextProps = this.props;
   }
 
   initStateInternal() {
@@ -47,6 +48,9 @@ abstract class Component {
    */
   Map _prevState = null;
   Map _nextState = null;
+
+  Map prevProps = null;
+  Map nextProps = null;
   /**
    * nextState and prevState are just getters for previous private variables _prevState
    * and _nextState
@@ -97,7 +101,7 @@ abstract class Component {
 
   void componentWillMount() {}
 
-  void componentDidMount(/*DOMElement */ rootNode) {}
+  void componentDidMount() {}
 
   void componentWillReceiveProps(newProps) {}
 
@@ -105,7 +109,7 @@ abstract class Component {
 
   void componentWillUpdate(nextProps, nextState) {}
 
-  void componentDidUpdate(prevProps, prevState, /*DOMElement */ rootNode) {}
+  void componentDidUpdate(prevProps, prevState) {}
 
   void componentWillUnmount() {}
 
