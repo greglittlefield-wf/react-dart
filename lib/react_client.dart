@@ -101,7 +101,7 @@ class CloningProps {
 @anonymous
 class ReactComponent<TComponent extends Component> {
   external InteropProps get props;
-  external Map get refs;
+  external get refs;
   external setState(state);
 }
 
