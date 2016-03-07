@@ -23,6 +23,7 @@ external dynamic _setProperty(jsObj, String key, value);
 typedef dynamic _GetPropertyFn(jsObj, String key);
 typedef dynamic _SetPropertyFn(jsObj, String key, value);
 
+// Necessary because `external operator[]` isn't allowed on JS interop classes https://github.com/dart-lang/sdk/issues/25053
 final _GetPropertyFn getProperty = (() {
   _eval(r'''
     function _getProperty(obj, key) {
@@ -33,6 +34,7 @@ final _GetPropertyFn getProperty = (() {
   return _getProperty;
 })();
 
+// Necessary because `external operator[]=` isn't allowed on JS interop classes https://github.com/dart-lang/sdk/issues/25053
 final _SetPropertyFn setProperty = (() {
   _eval(r'''
     function _setProperty(obj, key, value) {
@@ -145,6 +147,16 @@ class InteropProps {
   external set ref(dynamic value);
 
   external factory InteropProps({Internal internal, String key, dynamic ref});
+}
+
+@JS('Object.keys')
+external List _objectKeys(obj);
+
+Map getProps(ReactElement element) {
+  var props = element.props;
+
+  return new Map.fromIterable(_objectKeys(props),
+      value: (key) => getProperty(props, key));
 }
 
 final EmptyObject emptyJsMap = new EmptyObject();
