@@ -1,4 +1,4 @@
-// Copyright (c) 2013, the Clean project authors.  Please see the AUTHORS file
+// Copyright (c) 2013-2016, the Clean project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
@@ -9,6 +9,8 @@ import "dart:html";
 
 import "package:js/js.dart";
 import "package:react/react.dart";
+import "package:react/react_dom.dart";
+import "package:react/react_dom_server.dart";
 import "package:react/react_client/synthetic_event.dart" as events;
 
 @JS('eval')
@@ -50,20 +52,25 @@ final _SetPropertyFn setProperty = (() {
 class React {
   external static ReactClass createClass(ReactClassConfig reactClassConfig);
   external static Function createFactory(type);
-  external static Element findDOMNode(object);
 
   external static ReactElement cloneElement(element, [addedProps, newChildren]);
 
   external static ReactElement createElement(dynamic type, props, [dynamic children]);
 
-  external static initializeTouchEvents(bool touchEnabled);
+  external static bool isValidElement(dynamic object);
+}
+
+@JS('ReactDOM')
+class ReactDom {
+  external static Element findDOMNode(object);
   external static ReactComponent render(ReactElement component, HtmlElement element);
+  external static bool unmountComponentAtNode(HtmlElement element);
+}
+
+@JS('ReactDOMServer')
+class ReactDomServer {
   external static String renderToString(ReactElement component);
   external static String renderToStaticMarkup(ReactElement component);
-  external static bool unmountComponentAtNode(HtmlElement element);
-
-  external static bool isValidElement(dynamic object);
-
 }
 
 @JS()
@@ -161,29 +168,24 @@ Map getProps(ReactElement element) {
 
 final EmptyObject emptyJsMap = new EmptyObject();
 
-/**
- * Type of [children] must be child or list of childs, when child is JsObject or String
- */
+/// Type of [children] must be child or list of children, when child is [JsObject] or [String]
 typedef ReactElement ReactComponentFactory(Map props, [dynamic children]);
 typedef Component ComponentFactory();
 
-/**
- * A Dart function that creates React JS component instances.
- */
+/// The type of [Component.ref] specified as a callback.
+///
+/// See: <https://facebook.github.io/react/docs/more-about-refs.html#the-ref-callback-attribute>
+typedef _CallbackRef(componentOrDomNode);
+
+/// Creates ReactJS [Component] instances.
 abstract class ReactComponentFactoryProxy implements Function {
-  /**
-   * The type of component created by this factory.
-   */
+  /// The type of [Component] created by this factory.
   get type;
 
-  /**
-   * Returns a new rendered component instance with the specified props and children.
-   */
+  /// Returns a new rendered [Component] instance with the specified [props] and [children].
   ReactElement call(Map props, [dynamic children]);
 
-  /**
-   * Used to implement a variadic version of [call], in which children may be specified as additional options.
-   */
+  /// Used to implement a variadic version of [call], in which children may be specified as additional arguments.
   dynamic noSuchMethod(Invocation invocation);
 }
 
@@ -195,9 +197,7 @@ dynamic jsifyChildren(dynamic children) {
   }
 }
 
-/**
- * A Dart function that creates React JS component instances for Dart components.
- */
+/// Creates ReactJS [Component] instances for Dart components.
 class ReactDartComponentFactoryProxy<TReactElement extends ReactElement> extends ReactComponentFactoryProxy {
   final ReactClass reactClass;
   final Function reactComponentFactory;
@@ -238,10 +238,8 @@ class ReactDartComponentFactoryProxy<TReactElement extends ReactElement> extends
     return super.noSuchMethod(invocation);
   }
 
-  /**
-   * Returns a JsObject version of the specified props, preprocessed for consumption by React JS
-   * and prepared for consumption by the react-dart wrapper internals.
-   */
+  /// Returns a [JsObject] version of the specified [props], preprocessed for consumption by ReactJS and prepared for
+  /// consumption by the [react] library internals.
   static InteropProps generateExtendedJsProps(Map props, dynamic children) {
     if (children == null) {
       children = [];
@@ -254,7 +252,7 @@ class ReactDartComponentFactoryProxy<TReactElement extends ReactElement> extends
 
     var internal = new Internal()..props = extendedProps;
 
-    var interopProps = new InteropProps(internal: internal, ref: extendedProps['ref']);
+    var interopProps = new InteropProps(internal: internal);
 
     // Don't pass a key into InteropProps if one isn't defined, so that the value will
     // be `undefined` in the JS, which is ignored by React, whereas `null` isn't.
@@ -262,23 +260,30 @@ class ReactDartComponentFactoryProxy<TReactElement extends ReactElement> extends
       interopProps.key = extendedProps['key'];
     }
 
+    if (extendedProps.containsKey('ref')) {
+      var ref = extendedProps['ref'];
+
+      // If the ref is a callback, pass React a function that will call it
+      // with the Dart component instance, not the JsObject instance.
+      if (ref is _CallbackRef) {
+        interopProps.ref = (ReactComponent instance) => ref(instance == null ? null : instance.props.internal.component);
+      } else {
+        interopProps.ref = ref;
+      }
+    }
+
     return interopProps;
   }
 }
 
+
+/// Returns a new [ReactComponentFactory] which produces a new JS
+/// [`ReactClass` component class](https://facebook.github.io/react/docs/top-level-api.html#react.createclass).
 ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Iterable<String> skipMethods = const []]) {
 
   var zone = Zone.current;
 
-  /**
-   * wrapper for getDefaultProps.
-   * Get internal, create component and place it to internal.
-   *
-   * Next get default props by component method and merge component.props into it
-   * to update it with passed props from parent.
-   *
-   * @return jsProsp with internal with component.props and component
-   */
+  /// Wrapper for [Component.getDefaultProps].
   var getDefaultProps = allowInterop(() => zone.run(() {
     return new EmptyObject();
   }));
@@ -286,11 +291,7 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
 
   final Map defaultProps = new Map.from(componentFactory().getDefaultProps());
 
-  /**
-   * get initial state from component.getInitialState, put them to state.
-   *
-   * @return empty JsObject as default state for javascript react component
-   */
+  /// Wrapper for [Component.getInitialState].
   var getInitialState = allowInteropCaptureThis((ReactComponent jsThis) => zone.run(() {
     var internal = jsThis.props.internal;
     var redraw = () {
@@ -302,20 +303,17 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
     var getRef = (name) {
       var ref = getProperty(jsThis.refs, name);
       if (ref == null) return null;
+      if (ref is Element) return ref;
 
-      if (ref is ReactElement) {
-        return ref.props?.internal?.component ?? ref;
-      }
-
-      return ref;
+      return (ref as ReactComponent).props?.internal?.component ?? ref;
     };
 
     var getDOMNode = () {
-      return React.findDOMNode(jsThis);
+      return ReactDom.findDOMNode(jsThis);
     };
 
     Component component = componentFactory()
-        ..initComponentInternal(internal.props, redraw, getRef, getDOMNode, defaultProps);
+        ..initComponentInternal(internal.props, defaultProps, redraw, getRef, getDOMNode, jsThis);
 
     internal.component = component;
     internal.isMounted = false;
@@ -325,9 +323,7 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
     return new EmptyObject();
   }));
 
-  /**
-   * only wrap componentWillMount
-   */
+  /// Wrapper for [Component.componentWillMount].
   var componentWillMount = allowInteropCaptureThis((ReactComponent jsThis) => zone.run(() {
     var internal = jsThis.props.internal;
     internal.isMounted = true;
@@ -336,9 +332,7 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
         ..transferComponentState();
   }));
 
-  /**
-   * only wrap componentDidMount
-   */
+  /// Wrapper for [Component.componentDidMount].
   var componentDidMount = allowInteropCaptureThis((ReactComponent jsThis) => zone.run(
       jsThis.props.internal.component.componentDidMount
   ));
@@ -354,20 +348,21 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
     return nextProps;
   }
 
+  /// 1. Add [component] to [newArgs] to keep it in [INTERNAL]
+  /// 2. Update [Component.props] using [newArgs] as second argument to [_getNextProps]
+  /// 3. Update [Component.state] by calling [Component.transferComponentState]
   _afterPropsChange(Component component, InteropProps newArgs) {
-    /** add component to newArgs to keep component in internal */
+    // [1]
     newArgs.internal.component = component;
 
-    /** update component.props */
+    // [2]
     component.props = component.nextProps;
 
-    /** update component.state */
+    // [3]
     component.transferComponentState();
   }
 
-  /**
-   * Wrap componentWillReceiveProps
-   */
+  /// Wrapper for [Component.componentWillReceiveProps].
   var componentWillReceiveProps =
       allowInteropCaptureThis((ReactComponent jsThis, InteropProps newArgs, [reactInternal]) => zone.run(() {
     var component = jsThis.props.internal.component;
@@ -376,10 +371,7 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
     component.componentWillReceiveProps(nextProps);
   }));
 
-  /**
-   * count nextProps from jsNextProps, get result from component,
-   * and if shouldn't update, update props and transfer state.
-   */
+  /// Wrapper for [Component.shouldComponentUpdate].
   var shouldComponentUpdate =
       allowInteropCaptureThis((ReactComponent jsThis, InteropProps newArgs, nextState, nextContext) => zone.run(() {
     Component component = jsThis.props.internal.component;
@@ -388,18 +380,13 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
                                         component.nextState)) {
       return true;
     } else {
-      /**
-       * if component shouldnt update, update props and tranfer state,
-       * becasue willUpdate will not be called and so it will not do it.
-       */
+      // If component should not update, update props / transfer state because componentWillUpdate will not be called.
       _afterPropsChange(component, newArgs);
       return false;
     }
   }));
 
-  /**
-   * wrap component.componentWillUpdate and after that update props and transfer state
-   */
+  /// Wrapper for [Component.componentWillUpdate].
   var componentWillUpdate =
       allowInteropCaptureThis((ReactComponent jsThis, newArgs, nextState, [nextContext]) => zone.run(() {
     Component component = jsThis.props.internal.component;
@@ -408,9 +395,9 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
     _afterPropsChange(component, newArgs);
   }));
 
-  /**
-   * wrap componentDidUpdate and use component.prevState which was trasnfered from state in componentWillUpdate.
-   */
+  /// Wrapper for [Component.componentDidUpdate].
+  ///
+  /// Uses [prevState] which was transferred from [Component.nextState] in [componentWillUpdate].
   var componentDidUpdate =
       allowInteropCaptureThis((ReactComponent jsThis, InteropProps prevProps, prevState, prevContext) => zone.run(() {
     var prevInternalProps = prevProps.internal.props;
@@ -418,25 +405,20 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
     component.componentDidUpdate(prevInternalProps, component.prevState);
   }));
 
-  /**
-   * only wrap componentWillUnmount
-   */
+  /// Wrapper for [Component.componentWillUnmount].
   var componentWillUnmount = allowInteropCaptureThis((ReactComponent jsThis, [reactInternal]) => zone.run(() {
     var internal = jsThis.props.internal;
     internal.isMounted = false;
     internal.component.componentWillUnmount();
   }));
 
-  /**
-   * only wrap render
-   */
+  /// Wrapper for [Component.render].
   var render = allowInteropCaptureThis((ReactComponent jsThis) => zone.run(() {
     return jsThis.props.internal.component.render();
   }));
 
-  /**
-   * create reactComponent with wrapped functions
-   */
+  /// Create the JS [`ReactClass` component class](https://facebook.github.io/react/docs/top-level-api.html#react.createclass)
+  /// with wrapped functions.
   ReactClass reactComponentClass = React.createClass(new ReactClassConfig(
       componentWillMount: componentWillMount,
       componentDidMount: componentDidMount,
@@ -450,20 +432,14 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
       render: render
   ));
 
-  /**
-   * return ReactComponentFactory which produce react component with set props and children[s]
-   */
   return new ReactDartComponentFactoryProxy(reactComponentClass);
 }
 
-/**
- * A Dart function that creates React JS component instances for DOM components.
- */
+/// Creates ReactJS [Component] instances for DOM components.
 class ReactDomComponentFactoryProxy extends ReactComponentFactoryProxy {
-  /**
-   * The name of the proxied DOM component.
-   * E.g., 'div', 'a', 'h1'
-   */
+  /// The name of the proxied DOM component.
+  ///
+  /// E.g. `'div'`, `'a'`, `'h1'`
   final String name;
   ReactDomComponentFactoryProxy(name) :
     this.name = name,
@@ -503,9 +479,7 @@ class ReactDomComponentFactoryProxy extends ReactComponentFactoryProxy {
     return super.noSuchMethod(invocation);
   }
 
-  /**
-   * Prepares the bound values, event handlers, and style props for consumption by React JS DOM components.
-   */
+  /// Prepares the bound values, event handlers, and style props for consumption by ReactJS DOM components.
   static void convertProps(Map props) {
     _convertEventHandlers(props);
   }
@@ -523,24 +497,19 @@ void markChildrenValidated(List<dynamic> children) {
   });
 }
 
-/**
- * create dart-react registered component for html tag.
- */
+/// Create react-dart registered component for the HTML [Element].
 _reactDom(String name) {
   return new ReactDomComponentFactoryProxy(name);
 }
 
-/**
- * Convert event pack event handler into wrapper
- * and pass it only dart object of event
- * converted from JsObject of event.
- */
+/// Convert event handler into wrapper and pass it only the Dart [Event] object converted from the [JsObject]
+/// event.
 _convertEventHandlers(Map args) {
   var zone = Zone.current;
   args.forEach((propKey, value) {
     var eventFactory = _eventPropKeyToEventFactory[propKey];
     if (eventFactory != null && value != null) {
-      args[propKey] = allowInterop((event, [String domId]) => zone.run(() {
+      args[propKey] = allowInterop((event, [String domId, Event nativeEvent]) => zone.run(() {
         value(eventFactory(event));
       }));
     }
@@ -574,39 +543,42 @@ events.SyntheticTouchEvent     syntheticTouchEventFactory(e)     => e as events.
 events.SyntheticUIEvent        syntheticUIEventFactory(e)        => e as events.SyntheticUIEvent;
 events.SyntheticWheelEvent     syntheticWheelEventFactory(e)     => e as events.SyntheticWheelEvent;
 
-Set _syntheticClipboardEvents = new Set.from(["onCopy", "onCut", "onPaste",]);
+Set _syntheticClipboardEvents = new Set.from(['onCopy', 'onCut', 'onPaste',]);
 
-Set _syntheticKeyboardEvents = new Set.from(["onKeyDown", "onKeyPress",
-    "onKeyUp",]);
+Set _syntheticKeyboardEvents = new Set.from(['onKeyDown', 'onKeyPress', 'onKeyUp',]);
 
-Set _syntheticFocusEvents = new Set.from(["onFocus", "onBlur",]);
+Set _syntheticFocusEvents = new Set.from(['onFocus', 'onBlur',]);
 
-Set _syntheticFormEvents = new Set.from(["onChange", "onInput", "onSubmit",
+Set _syntheticFormEvents = new Set.from(['onChange', 'onInput', 'onSubmit', 'onReset',]);
+
+Set _syntheticMouseEvents = new Set.from(['onClick', 'onContextMenu', 'onDoubleClick', 'onDrag', 'onDragEnd',
+    'onDragEnter', 'onDragExit', 'onDragLeave', 'onDragOver', 'onDragStart', 'onDrop', 'onMouseDown', 'onMouseEnter',
+    'onMouseLeave', 'onMouseMove', 'onMouseOut', 'onMouseOver', 'onMouseUp',
 ]);
 
-Set _syntheticMouseEvents = new Set.from(["onClick", "onContextMenu",
-    "onDoubleClick", "onDrag", "onDragEnd", "onDragEnter", "onDragExit",
-    "onDragLeave", "onDragOver", "onDragStart", "onDrop", "onMouseDown",
-    "onMouseEnter", "onMouseLeave", "onMouseMove", "onMouseOut",
-    "onMouseOver", "onMouseUp",]);
+Set _syntheticTouchEvents = new Set.from(['onTouchCancel', 'onTouchEnd', 'onTouchMove', 'onTouchStart',]);
 
-Set _syntheticTouchEvents = new Set.from(["onTouchCancel", "onTouchEnd",
-    "onTouchMove", "onTouchStart",]);
+Set _syntheticUIEvents = new Set.from(['onScroll',]);
 
-Set _syntheticUIEvents = new Set.from(["onScroll",]);
+Set _syntheticWheelEvents = new Set.from(['onWheel',]);
 
-Set _syntheticWheelEvents = new Set.from(["onWheel",]);
 
 dynamic _findDomNode(component) {
   // if it's a dart component class, the mounted dom is returned from getDOMNode
   // which has jsComponent closured inside and calls on it findDOMNode
   if (component is Component) return component.getDOMNode();
   //otherwise we have js component so pass it in findDOM node
-  return React.findDOMNode(component);
+  return ReactDom.findDOMNode(component);
 }
 
 void setClientConfiguration() {
-  React.initializeTouchEvents(true);
-  setReactConfiguration(_reactDom, _registerComponent, React.render, React.renderToString,
-      React.renderToStaticMarkup, React.unmountComponentAtNode, _findDomNode);
+  if (React == null || ReactDom == null) {
+    throw new Exception('react.js and react_dom.js must be loaded.');
+  }
+
+  setReactConfiguration(_reactDom, _registerComponent, ReactDom.render,
+      ReactDomServer.renderToString, ReactDomServer.renderToStaticMarkup,
+      ReactDom.unmountComponentAtNode, _findDomNode);
+  setReactDOMConfiguration(ReactDom.render, ReactDom.unmountComponentAtNode, _findDomNode);
+  setReactDOMServerConfiguration(ReactDomServer.renderToString, ReactDomServer.renderToStaticMarkup);
 }

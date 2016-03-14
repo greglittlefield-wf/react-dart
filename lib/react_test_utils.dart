@@ -1,9 +1,32 @@
+// Copyright (c) 2016, the Clean project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
 library react.test_utils;
 
-import 'package:js/js.dart';
 import 'dart:html';
+import 'dart:js';
+
+import 'package:js/js.dart';
 import 'package:react/react.dart';
-import "package:react/react_client.dart";
+import 'package:react/react_client.dart';
+
+/// Returns [component] if it is already a [JsObject], and converts [component] if
+/// it is an [Element]. If [component] is neither a [JsObject] or an [Element], throws an
+/// [ArgumentError].
+///
+/// React does not use the same type of object for primitive components as composite components,
+/// and Dart converts the React objects used for primitive components to [Element]s automatically.
+/// This is problematic in some cases - primarily the test utility methods that return [JsObject]s,
+/// and render, which also needs to return a [JsObject]. This method can be used for handling this
+/// by converting the [Element] back to a [JsObject].
+JsObject normalizeReactComponent(dynamic component) {
+  if (component is JsObject) return component;
+  if (component is Element) return new JsObject.fromBrowserObject(component);
+  if (component == null) return null;
+
+  throw new ArgumentError('$component component is not a valid ReactComponent');
+}
 
 /// Returns the 'type' of a component.
 ///
