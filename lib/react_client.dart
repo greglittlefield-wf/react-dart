@@ -112,6 +112,8 @@ class ReactComponent<TComponent extends Component> {
   external InteropProps get props;
   external get refs;
   external setState(state);
+
+  external bool isMounted();
 }
 
 @JS()
