@@ -7,6 +7,7 @@ import 'package:unittest/html_config.dart';
 import 'package:unittest/unittest.dart';
 
 import 'test_components.dart';
+import 'package:js/js.dart';
 
 
 void main() {
@@ -25,6 +26,13 @@ void main() {
   group('Shallow Rendering', () {
     ReactElement content;
     ReactShallowRenderer shallowRenderer;
+
+    Map getProps(ReactElement element) {
+      var props = element.props;
+
+      return new Map.fromIterable(_objectKeys(props),
+          value: (key) => getProperty(props, key));
+    }
 
     setUp(() {
       content = sampleComponent({'className': 'test', 'id': 'createRendererTest'});
@@ -293,3 +301,6 @@ void main() {
     expect(h1DomNode.text, 'A header');
   });
 }
+
+@JS('Object.keys')
+external List _objectKeys(obj);

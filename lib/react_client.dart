@@ -157,16 +157,6 @@ class InteropProps {
   external factory InteropProps({Internal internal, String key, dynamic ref});
 }
 
-@JS('Object.keys')
-external List _objectKeys(obj);
-
-Map getProps(ReactElement element) {
-  var props = element.props;
-
-  return new Map.fromIterable(_objectKeys(props),
-      value: (key) => getProperty(props, key));
-}
-
 final EmptyObject emptyJsMap = new EmptyObject();
 
 /// Type of [children] must be child or list of children, when child is [JsObject] or [String]
