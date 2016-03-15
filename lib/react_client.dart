@@ -259,7 +259,8 @@ class ReactDartComponentFactoryProxy<TReactElement extends ReactElement> extends
       // If the ref is a callback, pass React a function that will call it
       // with the Dart component instance, not the JsObject instance.
       if (ref is _CallbackRef) {
-        interopProps.ref = (ReactComponent instance) => ref(instance == null ? null : instance.props.internal.component);
+        interopProps.ref = allowInterop((ReactComponent instance) =>
+            ref(instance == null ? null : instance.props.internal.component));
       } else {
         interopProps.ref = ref;
       }
