@@ -1,10 +1,8 @@
 import 'dart:html';
 import 'package:js/js.dart';
 
-import 'package:react/react.dart' as react;
-
 @JS()
-class SyntheticEvent implements react.SyntheticEvent {
+class SyntheticEvent {
   external bool get bubbles;
   external bool get cancelable;
   external get currentTarget;
@@ -18,15 +16,17 @@ class SyntheticEvent implements react.SyntheticEvent {
 
   external void stopPropagation();
   external void preventDefault();
+
+  external void persist();
 }
 
 @JS()
-class SyntheticClipboardEvent extends SyntheticEvent implements react.SyntheticClipboardEvent {
+class SyntheticClipboardEvent extends SyntheticEvent {
   external get clipboardData;
 }
 
 @JS()
-class SyntheticKeyboardEvent extends SyntheticEvent implements react.SyntheticKeyboardEvent {
+class SyntheticKeyboardEvent extends SyntheticEvent {
   external bool get altKey;
   external String get char;
   external bool get ctrlKey;
@@ -41,15 +41,15 @@ class SyntheticKeyboardEvent extends SyntheticEvent implements react.SyntheticKe
 }
 
 @JS()
-class SyntheticFocusEvent extends SyntheticEvent implements react.SyntheticFocusEvent {
+class SyntheticFocusEvent extends SyntheticEvent {
   external EventTarget get relatedTarget;
 }
 
 @JS()
-class SyntheticFormEvent extends SyntheticEvent  implements react.SyntheticFormEvent {}
+class SyntheticFormEvent extends SyntheticEvent {}
 
 @JS()
-class SyntheticDataTransfer implements react.SyntheticDataTransfer {
+class SyntheticDataTransfer {
   external String get dropEffect;
   external String get effectAllowed;
   external List<File> get files;
@@ -57,7 +57,7 @@ class SyntheticDataTransfer implements react.SyntheticDataTransfer {
 }
 
 @JS()
-class SyntheticMouseEvent extends SyntheticEvent implements react.SyntheticMouseEvent {
+class SyntheticMouseEvent extends SyntheticEvent {
   external bool get altKey;
   external num get button;
   external num get buttons;
@@ -75,7 +75,7 @@ class SyntheticMouseEvent extends SyntheticEvent implements react.SyntheticMouse
 }
 
 @JS()
-class SyntheticTouchEvent extends SyntheticEvent implements react.SyntheticTouchEvent {
+class SyntheticTouchEvent extends SyntheticEvent {
   external bool get altKey;
   external TouchList get changedTouches;
   external bool get ctrlKey;
@@ -86,13 +86,13 @@ class SyntheticTouchEvent extends SyntheticEvent implements react.SyntheticTouch
 }
 
 @JS()
-class SyntheticUIEvent extends SyntheticEvent implements react.SyntheticUIEvent {
+class SyntheticUIEvent extends SyntheticEvent {
   external num get detail;
   external get view;
 }
 
 @JS()
-class SyntheticWheelEvent extends SyntheticEvent implements react.SyntheticWheelEvent {
+class SyntheticWheelEvent extends SyntheticEvent {
   external num get deltaX;
   external num get deltaMode;
   external num get deltaY;

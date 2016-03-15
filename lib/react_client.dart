@@ -525,14 +525,109 @@ final Map<String, Function> _eventPropKeyToEventFactory = (() {
   return map;
 })();
 
-events.SyntheticClipboardEvent syntheticClipboardEventFactory(e) => e as events.SyntheticClipboardEvent;
-events.SyntheticKeyboardEvent  syntheticKeyboardEventFactory(e)  => e as events.SyntheticKeyboardEvent;
-events.SyntheticFocusEvent     syntheticFocusEventFactory(e)     => e as events.SyntheticFocusEvent;
-events.SyntheticFormEvent      syntheticFormEventFactory(e)      => e as events.SyntheticFormEvent;
-events.SyntheticMouseEvent     syntheticMouseEventFactory(e)     => e as events.SyntheticMouseEvent;
-events.SyntheticTouchEvent     syntheticTouchEventFactory(e)     => e as events.SyntheticTouchEvent;
-events.SyntheticUIEvent        syntheticUIEventFactory(e)        => e as events.SyntheticUIEvent;
-events.SyntheticWheelEvent     syntheticWheelEventFactory(e)     => e as events.SyntheticWheelEvent;
+/// Wrapper for [SyntheticEvent].
+SyntheticEvent syntheticEventFactory(events.SyntheticEvent e) {
+  return new SyntheticEvent(e.bubbles, e.cancelable, e.currentTarget,
+      e.defaultPrevented, () => e.preventDefault(),
+      () => e.stopPropagation(), e.eventPhase, e.isTrusted, e.nativeEvent,
+      e.target, e.timeStamp, e.type);
+}
+
+/// Wrapper for [SyntheticClipboardEvent].
+SyntheticClipboardEvent syntheticClipboardEventFactory(events.SyntheticClipboardEvent e) {
+  return new SyntheticClipboardEvent(e.bubbles, e.cancelable, e.currentTarget,
+      e.defaultPrevented, () => e.preventDefault(),
+      () => e.stopPropagation(), e.eventPhase, e.isTrusted, e.nativeEvent,
+      e.target, e.timeStamp, e.type, e.clipboardData);
+}
+
+/// Wrapper for [SyntheticKeyboardEvent].
+SyntheticKeyboardEvent syntheticKeyboardEventFactory(events.SyntheticKeyboardEvent e) {
+  return new SyntheticKeyboardEvent(e.bubbles, e.cancelable, e.currentTarget,
+      e.defaultPrevented, () => e.preventDefault(),
+      () => e.stopPropagation(), e.eventPhase, e.isTrusted,
+      e.nativeEvent, e.target, e.timeStamp, e.type, e.altKey,
+      e.char, e.charCode, e.ctrlKey, e.locale, e.location,
+      e.key, e.keyCode, e.metaKey, e.repeat, e.shiftKey);
+}
+
+/// Wrapper for [SyntheticFocusEvent].
+SyntheticFocusEvent syntheticFocusEventFactory(events.SyntheticFocusEvent e) {
+  return new SyntheticFocusEvent(e.bubbles, e.cancelable, e.currentTarget,
+      e.defaultPrevented, () => e.preventDefault(),
+      () => e.stopPropagation(), e.eventPhase, e.isTrusted, e.nativeEvent,
+      e.target, e.timeStamp, e.type, e.relatedTarget);
+}
+
+/// Wrapper for [SyntheticFormEvent].
+SyntheticFormEvent syntheticFormEventFactory(events.SyntheticFormEvent e) {
+  return new SyntheticFormEvent(e.bubbles, e.cancelable, e.currentTarget,
+      e.defaultPrevented, () => e.preventDefault(),
+      () => e.stopPropagation(), e.eventPhase, e.isTrusted, e.nativeEvent,
+      e.target, e.timeStamp, e.type);
+}
+
+/// Wrapper for [SyntheticDataTransfer].
+SyntheticDataTransfer syntheticDataTransferFactory(SyntheticDataTransfer dt) {
+  if (dt == null) return null;
+  List<File> files = [];
+  if (dt.files != null) {
+    for (int i = 0; i < dt.files.length; i++) {
+      files.add(dt.files[i]);
+    }
+  }
+  List<String> types = [];
+  if (dt.types != null) {
+    for (int i = 0; i < dt.types.length; i++) {
+      types.add(dt.types[i]);
+    }
+  }
+  var effectAllowed;
+  try {
+    // Works around a bug in IE where dragging from outside the browser fails.
+    // Trying to access this property throws the error "Unexpected call to method or property access.".
+    effectAllowed = dt.effectAllowed;
+  } catch (exception) {
+    effectAllowed = 'uninitialized';
+  }
+  return new SyntheticDataTransfer(dt.dropEffect, effectAllowed, files, types);
+}
+
+/// Wrapper for [SyntheticMouseEvent].
+SyntheticMouseEvent syntheticMouseEventFactory(events.SyntheticMouseEvent e) {
+  SyntheticDataTransfer dt = syntheticDataTransferFactory(e.dataTransfer);
+  return new SyntheticMouseEvent(e.bubbles, e.cancelable, e.currentTarget,
+      e.defaultPrevented, () => e.preventDefault(),
+      () => e.stopPropagation(), e.eventPhase, e.isTrusted, e.nativeEvent,
+      e.target, e.timeStamp, e.type, e.altKey, e.button, e.buttons, e.clientX, e.clientY,
+      e.ctrlKey, dt, e.metaKey, e.pageX, e.pageY, e.relatedTarget, e.screenX,
+      e.screenY, e.shiftKey);
+}
+
+/// Wrapper for [SyntheticTouchEvent].
+SyntheticTouchEvent syntheticTouchEventFactory(events.SyntheticTouchEvent e) {
+  return new SyntheticTouchEvent(e.bubbles, e.cancelable, e.currentTarget,
+      e.defaultPrevented, () => e.preventDefault(),
+      () => e.stopPropagation(), e.eventPhase, e.isTrusted, e.nativeEvent,
+      e.target, e.timeStamp, e.type, e.altKey, e.changedTouches, e.ctrlKey, e.metaKey,
+      e.shiftKey, e.targetTouches, e.touches);
+}
+
+/// Wrapper for [SyntheticUIEvent].
+SyntheticUIEvent syntheticUIEventFactory(events.SyntheticUIEvent e) {
+  return new SyntheticUIEvent(e.bubbles, e.cancelable, e.currentTarget,
+      e.defaultPrevented, () => e.preventDefault(),
+      () => e.stopPropagation(), e.eventPhase, e.isTrusted, e.nativeEvent,
+      e.target, e.timeStamp, e.type, e.detail, e.view);
+}
+
+/// Wrapper for [SyntheticWheelEvent].
+SyntheticWheelEvent syntheticWheelEventFactory(events.SyntheticWheelEvent e) {
+  return new SyntheticWheelEvent(e.bubbles, e.cancelable, e.currentTarget,
+      e.defaultPrevented, () => e.preventDefault(),
+      () => e.stopPropagation(), e.eventPhase, e.isTrusted, e.nativeEvent,
+      e.target, e.timeStamp, e.type, e.deltaX, e.deltaMode, e.deltaY, e.deltaZ);
+}
 
 Set _syntheticClipboardEvents = new Set.from(['onCopy', 'onCut', 'onPaste',]);
 
