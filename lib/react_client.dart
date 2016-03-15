@@ -134,6 +134,7 @@ class ReactClassConfig {
 @JS()
 @anonymous
 class ReactClass {
+  external String get displayName;
   external set displayName(String value);
 }
 
