@@ -66,15 +66,16 @@ void main() {
       expect(domNode.text, equals(''));
     });
 
-    void testEvent(void event(dynamic instanceOrNode, EventData eventData), String eventName) {
+    void testEvent(void event(dynamic instanceOrNode, Map eventData), String eventName) {
+      Map eventData;
       int fakeTimeStamp;
-      EventData eventData;
 
       setUp(() {
         fakeTimeStamp = eventName.hashCode;
-        eventData = new EventData()
-          ..type = eventName
-          ..timeStamp = fakeTimeStamp;
+        eventData = {
+          'type': eventName,
+          'timeStamp': fakeTimeStamp,
+        };
       });
 
       test('with React instance as arg', () {
