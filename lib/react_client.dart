@@ -122,6 +122,7 @@ class ReactComponent<TComponent extends Component> {
 @anonymous
 class ReactClassConfig {
   external factory ReactClassConfig({
+    String displayName,
     Function componentWillMount,
     Function componentDidMount,
     Function componentWillReceiveProps,
@@ -416,6 +417,7 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
   /// Create the JS [`ReactClass` component class](https://facebook.github.io/react/docs/top-level-api.html#react.createclass)
   /// with wrapped functions.
   ReactClass reactComponentClass = React.createClass(new ReactClassConfig(
+      displayName: componentFactory().displayName,
       componentWillMount: componentWillMount,
       componentDidMount: componentDidMount,
       componentWillReceiveProps: componentWillReceiveProps,
