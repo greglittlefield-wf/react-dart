@@ -1,3 +1,5 @@
+library react_client.synthetic_event;
+
 import 'dart:html';
 import 'package:js/js.dart';
 

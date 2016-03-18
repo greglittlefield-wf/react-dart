@@ -11,42 +11,10 @@ import "package:js/js.dart";
 import "package:react/react.dart";
 import "package:react/react_dom.dart";
 import "package:react/react_dom_server.dart";
+import "package:react/react_client/js_interop_helpers.dart";
 import "package:react/react_client/synthetic_event.dart" as events;
 
-@JS('eval')
-external dynamic _eval(String source);
-
-@JS()
-external dynamic _getProperty(jsObj, String key);
-
-@JS()
-external dynamic _setProperty(jsObj, String key, value);
-
-typedef dynamic _GetPropertyFn(jsObj, String key);
-typedef dynamic _SetPropertyFn(jsObj, String key, value);
-
-// Necessary because `external operator[]` isn't allowed on JS interop classes https://github.com/dart-lang/sdk/issues/25053
-final _GetPropertyFn getProperty = (() {
-  _eval(r'''
-    function _getProperty(obj, key) {
-      return obj[key];
-    }
-  ''');
-
-  return _getProperty;
-})();
-
-// Necessary because `external operator[]=` isn't allowed on JS interop classes https://github.com/dart-lang/sdk/issues/25053
-final _SetPropertyFn setProperty = (() {
-  _eval(r'''
-    function _setProperty(obj, key, value) {
-      return obj[key] = value;
-    }
-  ''');
-
-  return _setProperty;
-})();
-
+export 'package:react/react_client/js_interop_helpers.dart' show getProperty, setProperty;
 
 @JS()
 class React {
@@ -73,11 +41,6 @@ class ReactDomServer {
   external static String renderToStaticMarkup(ReactElement component);
 }
 
-@JS()
-@anonymous
-class EmptyObject {
-  external factory EmptyObject();
-}
 
 @JS()
 @anonymous
@@ -448,18 +411,10 @@ class ReactDomComponentFactoryProxy extends ReactComponentFactoryProxy {
 
   final Function factory;
 
-  static jsifyProps(Map props) {
-    var newObj = new EmptyObject();
-    props.forEach((key, value) {
-      setProperty(newObj, key, value is Map ? jsifyProps(value) : value);
-    });
-    return newObj;
-  }
-
   @override
   ReactElement call(Map props, [dynamic children]) {
     convertProps(props);
-    return factory(jsifyProps(props), jsifyChildren(children));
+    return factory(jsify(props), jsifyChildren(children));
   }
 
   @override
@@ -471,7 +426,7 @@ class ReactDomComponentFactoryProxy extends ReactComponentFactoryProxy {
       convertProps(props);
       markChildrenValidated(children);
 
-      return factory(jsifyProps(props), jsifyChildren(children));
+      return factory(jsify(props), jsifyChildren(children));
     }
 
     return super.noSuchMethod(invocation);
