@@ -96,7 +96,7 @@ class ReactClass {
   external set displayName(String value);
 }
 
-class Internal {
+class ReactDartComponentInternal {
   Component component;
   bool isMounted;
   Map props;
@@ -105,14 +105,14 @@ class Internal {
 @JS()
 @anonymous
 class InteropProps {
-  external Internal get internal;
+  external ReactDartComponentInternal get internal;
   external String get key;
   external dynamic get ref;
 
   external set key(String value);
   external set ref(dynamic value);
 
-  external factory InteropProps({Internal internal, String key, dynamic ref});
+  external factory InteropProps({ReactDartComponentInternal internal, String key, dynamic ref});
 }
 
 final EmptyObject emptyJsMap = new EmptyObject();
@@ -199,7 +199,7 @@ class ReactDartComponentFactoryProxy<TReactElement extends ReactElement> extends
     Map extendedProps = new Map.from(props);
     extendedProps['children'] = children;
 
-    var internal = new Internal()..props = extendedProps;
+    var internal = new ReactDartComponentInternal()..props = extendedProps;
 
     var interopProps = new InteropProps(internal: internal);
 
