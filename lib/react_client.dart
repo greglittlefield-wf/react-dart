@@ -17,11 +17,9 @@ import "package:react/react_client/synthetic_event.dart" as events;
 export 'package:react/react_client/js_interop_helpers.dart' show getProperty, setProperty;
 
 @JS()
-class React {
+abstract class React {
   external static ReactClass createClass(ReactClassConfig reactClassConfig);
   external static Function createFactory(type);
-
-  external static ReactElement cloneElement(element, [addedProps, newChildren]);
 
   external static ReactElement createElement(dynamic type, props, [dynamic children]);
 
@@ -29,14 +27,14 @@ class React {
 }
 
 @JS('ReactDOM')
-class ReactDom {
+abstract class ReactDom {
   external static Element findDOMNode(object);
   external static ReactComponent render(ReactElement component, HtmlElement element);
   external static bool unmountComponentAtNode(HtmlElement element);
 }
 
 @JS('ReactDOMServer')
-class ReactDomServer {
+abstract class ReactDomServer {
   external static String renderToString(ReactElement component);
   external static String renderToStaticMarkup(ReactElement component);
 }
@@ -160,7 +158,7 @@ class ReactDartComponentFactoryProxy<TReactElement extends ReactElement> extends
   ReactClass get type => reactClass;
 
   TReactElement call(Map props, [dynamic children]) {
-    // Convert Iterable children to JsArrays so that the JS can read them,
+    // Convert Iterable children to Lists so that the JS can read them,
     // and so they don't get iterated twice when passed to the Dart component
     // and to the JS component.
     if (children is Iterable && children is! List) {
