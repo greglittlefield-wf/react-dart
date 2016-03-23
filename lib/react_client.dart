@@ -464,20 +464,59 @@ _convertEventHandlers(Map args) {
 /// A mapping from event prop keys to their respective event factories.
 ///
 /// Used in [_convertEventHandlers] for efficient event handler conversion.
-final Map<String, Function> _eventPropKeyToEventFactory = (() {
-  var map = <String, Function>{};
+const Map<String, Function> _eventPropKeyToEventFactory = const <String, Function>{
+  // SyntheticClipboardEvent
+  'onCopy': syntheticClipboardEventFactory,
+  'onCut': syntheticClipboardEventFactory,
+  'onPaste': syntheticClipboardEventFactory,
 
-  _syntheticClipboardEvents.forEach((eventPropKey) => map[eventPropKey] = syntheticClipboardEventFactory);
-  _syntheticKeyboardEvents.forEach((eventPropKey)  => map[eventPropKey] = syntheticKeyboardEventFactory);
-  _syntheticFocusEvents.forEach((eventPropKey)     => map[eventPropKey] = syntheticFocusEventFactory);
-  _syntheticFormEvents.forEach((eventPropKey)      => map[eventPropKey] = syntheticFormEventFactory);
-  _syntheticMouseEvents.forEach((eventPropKey)     => map[eventPropKey] = syntheticMouseEventFactory);
-  _syntheticTouchEvents.forEach((eventPropKey)     => map[eventPropKey] = syntheticTouchEventFactory);
-  _syntheticUIEvents.forEach((eventPropKey)        => map[eventPropKey] = syntheticUIEventFactory);
-  _syntheticWheelEvents.forEach((eventPropKey)     => map[eventPropKey] = syntheticWheelEventFactory);
+  // SyntheticKeyboardEvent
+  'onKeyDown': syntheticKeyboardEventFactory,
+  'onKeyPress': syntheticKeyboardEventFactory,
+  'onKeyUp': syntheticKeyboardEventFactory,
 
-  return map;
-})();
+  // SyntheticFocusEvent
+  'onFocus': syntheticFocusEventFactory,
+  'onBlur': syntheticFocusEventFactory,
+
+  // SyntheticFormEvent
+  'onChange': syntheticFormEventFactory,
+  'onInput': syntheticFormEventFactory,
+  'onSubmit': syntheticFormEventFactory,
+  'onReset': syntheticFormEventFactory,
+
+  // SyntheticMouseEvent
+  'onClick': syntheticMouseEventFactory,
+  'onContextMenu': syntheticMouseEventFactory,
+  'onDoubleClick': syntheticMouseEventFactory,
+  'onDrag': syntheticMouseEventFactory,
+  'onDragEnd': syntheticMouseEventFactory,
+  'onDragEnter': syntheticMouseEventFactory,
+  'onDragExit': syntheticMouseEventFactory,
+  'onDragLeave': syntheticMouseEventFactory,
+  'onDragOver': syntheticMouseEventFactory,
+  'onDragStart': syntheticMouseEventFactory,
+  'onDrop': syntheticMouseEventFactory,
+  'onMouseDown': syntheticMouseEventFactory,
+  'onMouseEnter': syntheticMouseEventFactory,
+  'onMouseLeave': syntheticMouseEventFactory,
+  'onMouseMove': syntheticMouseEventFactory,
+  'onMouseOut': syntheticMouseEventFactory,
+  'onMouseOver': syntheticMouseEventFactory,
+  'onMouseUp': syntheticMouseEventFactory,
+
+  // SyntheticTouchEvent
+  'onTouchCancel': syntheticTouchEventFactory,
+  'onTouchEnd': syntheticTouchEventFactory,
+  'onTouchMove': syntheticTouchEventFactory,
+  'onTouchStart': syntheticTouchEventFactory,
+
+  // SyntheticUIEvent
+  'onScroll': syntheticUIEventFactory,
+
+  // SyntheticWheelEvent
+  'onWheel': syntheticWheelEventFactory,
+};
 
 /// Wrapper for [SyntheticEvent].
 SyntheticEvent syntheticEventFactory(events.SyntheticEvent e) {
@@ -582,26 +621,6 @@ SyntheticWheelEvent syntheticWheelEventFactory(events.SyntheticWheelEvent e) {
       () => e.stopPropagation(), e.eventPhase, e.isTrusted, e.nativeEvent,
       e.target, e.timeStamp, e.type, e.deltaX, e.deltaMode, e.deltaY, e.deltaZ);
 }
-
-Set _syntheticClipboardEvents = new Set.from(['onCopy', 'onCut', 'onPaste',]);
-
-Set _syntheticKeyboardEvents = new Set.from(['onKeyDown', 'onKeyPress', 'onKeyUp',]);
-
-Set _syntheticFocusEvents = new Set.from(['onFocus', 'onBlur',]);
-
-Set _syntheticFormEvents = new Set.from(['onChange', 'onInput', 'onSubmit', 'onReset',]);
-
-Set _syntheticMouseEvents = new Set.from(['onClick', 'onContextMenu', 'onDoubleClick', 'onDrag', 'onDragEnd',
-    'onDragEnter', 'onDragExit', 'onDragLeave', 'onDragOver', 'onDragStart', 'onDrop', 'onMouseDown', 'onMouseEnter',
-    'onMouseLeave', 'onMouseMove', 'onMouseOut', 'onMouseOver', 'onMouseUp',
-]);
-
-Set _syntheticTouchEvents = new Set.from(['onTouchCancel', 'onTouchEnd', 'onTouchMove', 'onTouchStart',]);
-
-Set _syntheticUIEvents = new Set.from(['onScroll',]);
-
-Set _syntheticWheelEvents = new Set.from(['onWheel',]);
-
 
 dynamic _findDomNode(component) {
   return ReactDom.findDOMNode(component is Component ? component.jsThis : component);
