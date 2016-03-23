@@ -616,7 +616,12 @@ dynamic _findDomNode(component) {
 }
 
 void setClientConfiguration() {
-  if (React == null || ReactDom == null) {
+  try {
+    // Attempt to invoke JS interop methods, which will throw if the
+    // corresponding JS functions are not available.
+    React.isValidElement(null);
+    ReactDom.findDOMNode(null);
+  } on NoSuchMethodError catch (_) {
     throw new Exception('react.js and react_dom.js must be loaded.');
   }
 
