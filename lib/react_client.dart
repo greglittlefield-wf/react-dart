@@ -51,7 +51,7 @@ class ReactElementStore {
 
 @JS()
 @anonymous
-class ReactElement {
+class ReactElement<TComponent extends Component> {
   external ReactElementStore get _store;
   external dynamic get type;
 
@@ -62,19 +62,11 @@ class ReactElement {
 
 @JS()
 @anonymous
-class CloningProps {
-  external String get key;
-  external String get ref;
-
-  external factory CloningProps({String key, dynamic ref});
-}
-
-@JS()
-@anonymous
-class ReactComponent<TComponent extends Component> {
+class ReactComponent {
   external InteropProps get props;
   external get refs;
-  external setState(state);
+  external void setState(state, [callback]);
+  external void forceUpdate([callback]);
   @deprecated
   external setProps(props, [callback]);
 
