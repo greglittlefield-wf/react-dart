@@ -1,9 +1,13 @@
+/// JS interop classes for React synthetic events.
+///
+/// For use in `react_client.dart` and by advanced react-dart users.
 library react_client.synthetic_event;
 
 import 'dart:html';
 import 'package:js/js.dart';
 
 @JS()
+@anonymous
 class SyntheticEvent {
   external bool get bubbles;
   external bool get cancelable;
@@ -23,11 +27,13 @@ class SyntheticEvent {
 }
 
 @JS()
+@anonymous
 class SyntheticClipboardEvent extends SyntheticEvent {
   external get clipboardData;
 }
 
 @JS()
+@anonymous
 class SyntheticKeyboardEvent extends SyntheticEvent {
   external bool get altKey;
   external String get char;
@@ -43,14 +49,17 @@ class SyntheticKeyboardEvent extends SyntheticEvent {
 }
 
 @JS()
+@anonymous
 class SyntheticFocusEvent extends SyntheticEvent {
   external EventTarget get relatedTarget;
 }
 
 @JS()
+@anonymous
 class SyntheticFormEvent extends SyntheticEvent {}
 
 @JS()
+@anonymous
 class SyntheticDataTransfer {
   external String get dropEffect;
   external String get effectAllowed;
@@ -59,6 +68,7 @@ class SyntheticDataTransfer {
 }
 
 @JS()
+@anonymous
 class SyntheticMouseEvent extends SyntheticEvent {
   external bool get altKey;
   external num get button;
@@ -77,6 +87,7 @@ class SyntheticMouseEvent extends SyntheticEvent {
 }
 
 @JS()
+@anonymous
 class SyntheticTouchEvent extends SyntheticEvent {
   external bool get altKey;
   external TouchList get changedTouches;
@@ -88,12 +99,14 @@ class SyntheticTouchEvent extends SyntheticEvent {
 }
 
 @JS()
+@anonymous
 class SyntheticUIEvent extends SyntheticEvent {
   external num get detail;
   external get view;
 }
 
 @JS()
+@anonymous
 class SyntheticWheelEvent extends SyntheticEvent {
   external num get deltaX;
   external num get deltaMode;

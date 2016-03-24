@@ -9,111 +9,13 @@ import "dart:html";
 
 import "package:js/js.dart";
 import "package:react/react.dart";
+import "package:react/react_client/js_interop_helpers.dart";
+import 'package:react/react_client/react_interop.dart';
+import "package:react/react_client/synthetic_event_interop.dart" as events;
 import "package:react/react_dom.dart";
 import "package:react/react_dom_server.dart";
-import "package:react/react_client/js_interop_helpers.dart";
-import "package:react/react_client/synthetic_event.dart" as events;
 
-export 'package:react/react_client/js_interop_helpers.dart' show getProperty, setProperty;
-
-@JS()
-abstract class React {
-  external static ReactClass createClass(ReactClassConfig reactClassConfig);
-  external static Function createFactory(type);
-
-  external static ReactElement createElement(dynamic type, props, [dynamic children]);
-
-  external static bool isValidElement(dynamic object);
-}
-
-@JS('ReactDOM')
-abstract class ReactDom {
-  external static Element findDOMNode(object);
-  external static ReactComponent render(ReactElement component, HtmlElement element);
-  external static bool unmountComponentAtNode(HtmlElement element);
-}
-
-@JS('ReactDOMServer')
-abstract class ReactDomServer {
-  external static String renderToString(ReactElement component);
-  external static String renderToStaticMarkup(ReactElement component);
-}
-
-
-@JS()
-@anonymous
-class ReactElementStore {
-  external bool get validated;
-  external set validated(bool value);
-}
-
-@JS()
-@anonymous
-class ReactElement<TComponent extends Component> {
-  external ReactElementStore get _store;
-  external dynamic get type;
-
-  external String get key;
-  external dynamic get ref;
-  external InteropProps get props;
-}
-
-@JS()
-@anonymous
-class ReactComponent {
-  external InteropProps get props;
-  external get refs;
-  external void setState(state, [callback]);
-  external void forceUpdate([callback]);
-  @deprecated
-  external setProps(props, [callback]);
-
-  external bool isMounted();
-}
-
-@JS()
-@anonymous
-class ReactClassConfig {
-  external factory ReactClassConfig({
-    String displayName,
-    Function componentWillMount,
-    Function componentDidMount,
-    Function componentWillReceiveProps,
-    Function shouldComponentUpdate,
-    Function componentWillUpdate,
-    Function componentDidUpdate,
-    Function componentWillUnmount,
-    Function getDefaultProps,
-    Function getInitialState,
-    Function render
-  });
-}
-
-@JS()
-@anonymous
-class ReactClass {
-  external String get displayName;
-  external set displayName(String value);
-}
-
-class ReactDartComponentInternal {
-  Component component;
-  bool isMounted;
-  Map props;
-}
-
-@JS()
-@anonymous
-class InteropProps {
-  external ReactDartComponentInternal get internal;
-  external String get key;
-  external dynamic get ref;
-
-  external set key(String value);
-  external set ref(dynamic value);
-
-  external factory InteropProps({ReactDartComponentInternal internal, String key, dynamic ref});
-}
+export 'package:react/react_client/react_interop.dart' show ReactElement;
 
 final EmptyObject emptyJsMap = new EmptyObject();
 
@@ -426,18 +328,6 @@ class ReactDomComponentFactoryProxy extends ReactComponentFactoryProxy {
   static void convertProps(Map props) {
     _convertEventHandlers(props);
   }
-}
-
-/// Mark each child in children as validated so that React doesn't emit key warnings.
-///
-/// ___Only for use with variadic children.___
-void markChildrenValidated(List<dynamic> children) {
-  children.forEach((dynamic child) {
-    // Use `isValidElement` since `is ReactElement` doesn't behave as expected.
-    if (React.isValidElement(child)) {
-      (child as ReactElement)._store?.validated = true;
-    }
-  });
 }
 
 /// Create react-dart registered component for the HTML [Element].
