@@ -25,6 +25,7 @@ import 'package:js/js.dart';
 import 'package:react/react.dart';
 import 'package:react/react_client.dart';
 import 'package:react/react_client/js_interop_helpers.dart';
+import 'package:react/react_client/react_interop.dart';
 import 'package:react/react_test_utils/simulate_wrappers.dart' as simulate_wrappers;
 
 /// Returns the 'type' of a component.
@@ -154,7 +155,7 @@ external dynamic /* [1] */ _findRenderedComponentWithType(/* [1] */ tree, dynami
 /// Same as scryRenderedComponentsWithType() but expects there to be one result
 /// and returns that one result, or throws exception if there is any other
 /// number of matches besides one.
-ReactComponent findRenderedComponentWithType(
+/* [1] */ findRenderedComponentWithType(
     /* [1] */ tree, ReactComponentFactory componentType) {
   return _findRenderedComponentWithType(tree, getComponentType(componentType));
 }
