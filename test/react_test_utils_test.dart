@@ -2,6 +2,7 @@ import 'dart:html';
 
 import 'package:react/react.dart';
 import 'package:react/react_client.dart';
+import 'package:react/react_client/js_interop_helpers.dart';
 import 'package:react/react_test_utils.dart';
 import 'package:unittest/html_config.dart';
 import 'package:unittest/unittest.dart';
@@ -225,7 +226,7 @@ void main() {
     });
 
     test('returns false argument is not an element', () {
-      expect(isElement(div({}).props), isFalse);
+      expect(isElement(new EmptyObject()), isFalse);
     });
   });
 
