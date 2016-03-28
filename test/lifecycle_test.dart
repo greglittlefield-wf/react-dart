@@ -83,16 +83,25 @@ void main() {
   });
 
   group('React component lifecycle:', () {
+    Map matchCall(String memberName, {args: anything, props: anything, state: anything}) {
+      return {
+        'memberName': memberName,
+        'arguments': args,
+        'props': props,
+        'state': state,
+      };
+    }
+
     test('recieves correct lifecycle calls on component mount', () {
       _LifecycleTest component = getDartComponent(
           render(LifecycleTest({}))
       );
 
       expect(component.lifecycleCalls, equals([
-        ['getInitialState'],
-        ['componentWillMount'],
-        ['render', anything, anything],
-        ['componentDidMount'],
+        matchCall('getInitialState'),
+        matchCall('componentWillMount'),
+        matchCall('render'),
+        matchCall('componentDidMount'),
       ]));
     });
 
@@ -106,7 +115,7 @@ void main() {
       react_dom.unmountComponentAtNode(mountNode);
 
       expect(component.lifecycleCalls, equals([
-        ['componentWillUnmount'],
+        matchCall('componentWillUnmount'),
       ]));
     });
 
@@ -131,11 +140,11 @@ void main() {
       react_dom.render(LifecycleTest(newProps), mountNode);
 
       expect(component.lifecycleCalls, equals([
-        ['componentWillReceiveProps', newProps],
-        ['shouldComponentUpdate', newProps, expectedState],
-        ['componentWillUpdate', newProps, expectedState],
-        ['render', newProps, expectedState],
-        ['componentDidUpdate', initialProps, expectedState],
+        matchCall('componentWillReceiveProps', args: [newProps],                    props: initialProps),
+        matchCall('shouldComponentUpdate',     args: [newProps, expectedState],     props: initialProps),
+        matchCall('componentWillUpdate',       args: [newProps, expectedState],     props: initialProps),
+        matchCall('render',                                                         props: newProps),
+        matchCall('componentDidUpdate',        args: [initialProps, expectedState], props: newProps),
       ]));
     });
 
@@ -161,10 +170,10 @@ void main() {
       component.setState(stateDelta);
 
       expect(component.lifecycleCalls, equals([
-        ['shouldComponentUpdate', expectedProps, newState],
-        ['componentWillUpdate', expectedProps, newState],
-        ['render', expectedProps, newState],
-        ['componentDidUpdate', expectedProps, initialState],
+        matchCall('shouldComponentUpdate', args: [expectedProps, newState],     state: initialState),
+        matchCall('componentWillUpdate',   args: [expectedProps, newState],     state: initialState),
+        matchCall('render',                                                     state: newState),
+        matchCall('componentDidUpdate',    args: [expectedProps, initialState], state: newState),
       ]));
     });
   });
@@ -198,37 +207,46 @@ ReactDartComponentFactoryProxy<_LifecycleTest> LifecycleTest = react.registerCom
 class _LifecycleTest extends react.Component {
   List lifecycleCalls = [];
 
-  void componentWillMount() => lifecycleCalls.add(['componentWillMount']);
-  void componentDidMount() => lifecycleCalls.add(['componentDidMount']);
-  void componentWillUnmount() => lifecycleCalls.add(['componentWillUnmount']);
+  void recordLifecycleCall(String memberName, [List arguments = const []]) {
+    lifecycleCalls.add({
+      'memberName': memberName,
+      'arguments': arguments,
+      'props': props == null ? null : new Map.from(props),
+      'state': state == null ? null : new Map.from(state),
+    });
+  }
+
+  void componentWillMount() => recordLifecycleCall('componentWillMount');
+  void componentDidMount() => recordLifecycleCall('componentDidMount');
+  void componentWillUnmount() => recordLifecycleCall('componentWillUnmount');
 
   void componentWillReceiveProps(newProps) {
-    lifecycleCalls.add(['componentWillReceiveProps', new Map.from(newProps)]);
+    recordLifecycleCall('componentWillReceiveProps', [new Map.from(newProps)]);
   }
   void componentWillUpdate(nextProps, nextState) {
-    lifecycleCalls.add(['componentWillUpdate', new Map.from(nextProps), new Map.from(nextState)]);
+    recordLifecycleCall('componentWillUpdate', [new Map.from(nextProps), new Map.from(nextState)]);
   }
   void componentDidUpdate(prevProps, prevState) {
-    lifecycleCalls.add(['componentDidUpdate', new Map.from(prevProps), new Map.from(prevState)]);
+    recordLifecycleCall('componentDidUpdate', [new Map.from(prevProps), new Map.from(prevState)]);
   }
 
   bool shouldComponentUpdate(nextProps, nextState) {
-    lifecycleCalls.add(['shouldComponentUpdate', new Map.from(nextProps), new Map.from(nextState)]);
+    recordLifecycleCall('shouldComponentUpdate', [new Map.from(nextProps), new Map.from(nextState)]);
     return true;
   }
 
   dynamic render() {
-    lifecycleCalls.add(['render', new Map.from(props), new Map.from(state)]);
+    recordLifecycleCall('render');
     return react.div({});
   }
 
   Map getInitialState() {
-    lifecycleCalls.add(['getInitialState']);
+    recordLifecycleCall('getInitialState');
     return {};
   }
 
   Map getDefaultProps() {
-    lifecycleCalls.add(['getDefaultProps']);
+    recordLifecycleCall('getDefaultProps');
     return {};
   }
 }
