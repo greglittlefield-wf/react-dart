@@ -274,11 +274,11 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
   ReactClass reactComponentClass = React.createClass(new ReactClassConfig(
       displayName: componentFactory().displayName,
       componentWillMount: componentWillMount,
-      componentDidMount: componentDidMount,
+      componentDidMount: skipMethods.contains('componentDidMount') ? null : componentDidMount,
       componentWillReceiveProps: componentWillReceiveProps,
       shouldComponentUpdate: shouldComponentUpdate,
       componentWillUpdate: componentWillUpdate,
-      componentDidUpdate: componentDidUpdate,
+      componentDidUpdate: skipMethods.contains('componentDidUpdate') ? null : componentDidUpdate,
       componentWillUnmount: componentWillUnmount,
       getDefaultProps: getDefaultProps,
       getInitialState: getInitialState,
