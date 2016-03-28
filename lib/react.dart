@@ -31,9 +31,6 @@ abstract class Component {
   /// to be set for debugging purposes.
   String get displayName => runtimeType.toString();
 
-  /// Bind the value of input to [state[key]].
-  bind(key) => [state[key], (value) => setState({key: value})];
-
   initComponentInternal(props, defaultProps, _jsRedraw, [ref, getDOMNode, _jsThis]) {
     this._jsRedraw = _jsRedraw;
     this.ref = ref;

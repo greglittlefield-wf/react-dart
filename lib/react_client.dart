@@ -324,7 +324,7 @@ class ReactDomComponentFactoryProxy extends ReactComponentFactoryProxy {
     return super.noSuchMethod(invocation);
   }
 
-  /// Prepares the bound values, event handlers, and style props for consumption by ReactJS DOM components.
+  /// Prepares props like event handlers for consumption by ReactJS DOM components.
   static void convertProps(Map props) {
     _convertEventHandlers(props);
   }
