@@ -1,6 +1,9 @@
+import 'dart:html';
+
 import 'package:react/react.dart' as react;
 import 'package:react/react_client.dart';
 import 'package:react/react_client/react_interop.dart';
+import 'package:react/react_dom.dart' as react_dom;
 import 'package:react/react_test_utils.dart' as react_test_utils;
 import 'package:unittest/html_config.dart';
 import 'package:unittest/unittest.dart';
@@ -13,8 +16,12 @@ void main() {
     return react_test_utils.renderIntoDocument(reactElement);
   }
 
+  react.Component getDartComponent(ReactComponent dartComponent) {
+    return dartComponent.props.internal.component;
+  }
+
   Map getDartComponentProps(ReactComponent dartComponent) {
-    return dartComponent.props.internal.component.props;
+    return getDartComponent(dartComponent).props;
   }
 
   Map getDartElementProps(ReactElement dartElement) {
@@ -74,6 +81,93 @@ void main() {
       });
     });
   });
+
+  group('React component lifecycle:', () {
+    test('recieves correct lifecycle calls on component mount', () {
+      _LifecycleTest component = getDartComponent(
+          render(LifecycleTest({}))
+      );
+
+      expect(component.lifecycleCalls, equals([
+        ['getInitialState'],
+        ['componentWillMount'],
+        ['render', anything, anything],
+        ['componentDidMount'],
+      ]));
+    });
+
+    test('recieves correct lifecycle calls on component unmount order', () {
+      var mountNode = new DivElement();
+      var instance = react_dom.render(LifecycleTest({}), mountNode);
+      _LifecycleTest component = getDartComponent(instance);
+
+      component.lifecycleCalls.clear();
+
+      react_dom.unmountComponentAtNode(mountNode);
+
+      expect(component.lifecycleCalls, equals([
+        ['componentWillUnmount'],
+      ]));
+    });
+
+    test('recieves updated props with correct lifecycle calls', () {
+      const Map initialProps = const {
+        'initialProp': 'initial',
+        'children': const []
+      };
+      const Map newProps = const {
+        'newProp': 'new',
+        'children': const []
+      };
+
+      const Map expectedState = const {};
+
+      var mountNode = new DivElement();
+      var instance = react_dom.render(LifecycleTest(initialProps), mountNode);
+      _LifecycleTest component = getDartComponent(instance);
+
+      component.lifecycleCalls.clear();
+
+      react_dom.render(LifecycleTest(newProps), mountNode);
+
+      expect(component.lifecycleCalls, equals([
+        ['componentWillReceiveProps', newProps],
+        ['shouldComponentUpdate', newProps, expectedState],
+        ['componentWillUpdate', newProps, expectedState],
+        ['render', newProps, expectedState],
+        ['componentDidUpdate', initialProps, expectedState],
+      ]));
+    });
+
+    test('updates state with correct lifecycle calls', () {
+      const Map initialState = const {
+        'initialState': 'initial',
+      };
+      const Map newState = const {
+        'initialState': 'initial',
+        'newState': 'new',
+      };
+      const Map stateDelta = const {
+        'newState': 'new',
+      };
+
+      const Map expectedProps = const {'children': const []};
+
+      _LifecycleTest component = getDartComponent(render(LifecycleTest({})));
+      component.setState(initialState);
+
+      component.lifecycleCalls.clear();
+
+      component.setState(stateDelta);
+
+      expect(component.lifecycleCalls, equals([
+        ['shouldComponentUpdate', expectedProps, newState],
+        ['componentWillUpdate', expectedProps, newState],
+        ['render', expectedProps, newState],
+        ['componentDidUpdate', expectedProps, initialState],
+      ]));
+    });
+  });
 }
 
 class _DefaultPropsCachingTest extends react.Component {
@@ -98,4 +192,43 @@ class _DefaultPropsTest extends react.Component {
   };
 
   render() => false;
+}
+
+ReactDartComponentFactoryProxy<_LifecycleTest> LifecycleTest = react.registerComponent(() => new _LifecycleTest());
+class _LifecycleTest extends react.Component {
+  List lifecycleCalls = [];
+
+  void componentWillMount() => lifecycleCalls.add(['componentWillMount']);
+  void componentDidMount() => lifecycleCalls.add(['componentDidMount']);
+  void componentWillUnmount() => lifecycleCalls.add(['componentWillUnmount']);
+
+  void componentWillReceiveProps(newProps) {
+    lifecycleCalls.add(['componentWillReceiveProps', new Map.from(newProps)]);
+  }
+  void componentWillUpdate(nextProps, nextState) {
+    lifecycleCalls.add(['componentWillUpdate', new Map.from(nextProps), new Map.from(nextState)]);
+  }
+  void componentDidUpdate(prevProps, prevState) {
+    lifecycleCalls.add(['componentDidUpdate', new Map.from(prevProps), new Map.from(prevState)]);
+  }
+
+  bool shouldComponentUpdate(nextProps, nextState) {
+    lifecycleCalls.add(['shouldComponentUpdate', new Map.from(nextProps), new Map.from(nextState)]);
+    return true;
+  }
+
+  dynamic render() {
+    lifecycleCalls.add(['render', new Map.from(props), new Map.from(state)]);
+    return react.div({});
+  }
+
+  Map getInitialState() {
+    lifecycleCalls.add(['getInitialState']);
+    return {};
+  }
+
+  Map getDefaultProps() {
+    lifecycleCalls.add(['getDefaultProps']);
+    return {};
+  }
 }
