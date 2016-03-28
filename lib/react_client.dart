@@ -49,17 +49,18 @@ dynamic jsifyChildren(dynamic children) {
 }
 
 /// Creates ReactJS [Component] instances for Dart components.
-class ReactDartComponentFactoryProxy<TReactElement extends ReactElement> extends ReactComponentFactoryProxy {
+class ReactDartComponentFactoryProxy<TComponent extends Component> extends ReactComponentFactoryProxy {
   final ReactClass reactClass;
   final Function reactComponentFactory;
+  final Map defaultProps;
 
-  ReactDartComponentFactoryProxy(ReactClass reactClass) :
+  ReactDartComponentFactoryProxy(ReactClass reactClass, [this.defaultProps = const {}]) :
     this.reactClass = reactClass,
     this.reactComponentFactory = React.createFactory(reactClass);
 
   ReactClass get type => reactClass;
 
-  TReactElement call(Map props, [dynamic children]) {
+  ReactElement<TComponent> call(Map props, [dynamic children]) {
     // Convert Iterable children to Lists so that the JS can read them,
     // and so they don't get iterated twice when passed to the Dart component
     // and to the JS component.
@@ -91,15 +92,20 @@ class ReactDartComponentFactoryProxy<TReactElement extends ReactElement> extends
 
   /// Returns a [JsObject] version of the specified [props], preprocessed for consumption by ReactJS and prepared for
   /// consumption by the [react] library internals.
-  static InteropProps generateExtendedJsProps(Map props, dynamic children) {
+  InteropProps generateExtendedJsProps(Map props, dynamic children) {
     if (children == null) {
       children = [];
     } else if (children is! Iterable) {
       children = [children];
     }
 
-    Map extendedProps = new Map.from(props);
-    extendedProps['children'] = children;
+    // Merge in defaults props and add children.
+    Map extendedProps = new Map.from(defaultProps)
+      ..addAll(props)
+      ..['children'] = children
+      // Remove "reserved" props that should not be visible to the rendered component.
+      ..remove('key')
+      ..remove('ref');
 
     var internal = new ReactDartComponentInternal()..props = extendedProps;
 
@@ -107,12 +113,12 @@ class ReactDartComponentFactoryProxy<TReactElement extends ReactElement> extends
 
     // Don't pass a key into InteropProps if one isn't defined, so that the value will
     // be `undefined` in the JS, which is ignored by React, whereas `null` isn't.
-    if (extendedProps.containsKey('key')) {
-      interopProps.key = extendedProps['key'];
+    if (props.containsKey('key')) {
+      interopProps.key = props['key'];
     }
 
-    if (extendedProps.containsKey('ref')) {
-      var ref = extendedProps['ref'];
+    if (props.containsKey('ref')) {
+      var ref = props['ref'];
 
       // If the ref is a callback, pass React a function that will call it
       // with the Dart component instance, not the JsObject instance.
@@ -200,8 +206,9 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
     return nextProps;
   }
 
-  /// 1. Add [component] to [newArgs] to keep it in [INTERNAL]
-  /// 2. Update [Component.props] using [newArgs] as second argument to [_getNextProps]
+  /// 1. Add [component] to [newArgs] to keep it in [InteropProps.internal]
+  /// 2. Update [Component.props] using the value store to [Component.nextProps]
+  ///    in [componentWillReceiveProps].
   /// 3. Update [Component.state] by calling [Component.transferComponentState]
   _afterPropsChange(Component component, InteropProps newArgs) {
     // [1]
@@ -285,7 +292,7 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
       render: render
   ));
 
-  return new ReactDartComponentFactoryProxy(reactComponentClass);
+  return new ReactDartComponentFactoryProxy(reactComponentClass, defaultProps);
 }
 
 /// Creates ReactJS [Component] instances for DOM components.
