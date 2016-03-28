@@ -176,6 +176,66 @@ void main() {
         matchCall('componentDidUpdate',    args: [expectedProps, initialState], state: newState),
       ]));
     });
+
+    group('when shouldComponentUpdate returns false:', () {
+      test('recieves updated props with correct lifecycle calls and does not rerender', () {
+        const Map initialProps = const {
+          'shouldComponentUpdate': false,
+          'initialProp': 'initial',
+          'children': const []
+        };
+        const Map newProps = const {
+          'newProp': 'new',
+          'children': const []
+        };
+
+        const Map expectedState = const {};
+
+        var mountNode = new DivElement();
+        var instance = react_dom.render(LifecycleTest(initialProps), mountNode);
+        _LifecycleTest component = getDartComponent(instance);
+
+        component.lifecycleCalls.clear();
+
+        react_dom.render(LifecycleTest(newProps), mountNode);
+
+        expect(component.lifecycleCalls, equals([
+          matchCall('componentWillReceiveProps', args: [newProps],                props: initialProps),
+          matchCall('shouldComponentUpdate',     args: [newProps, expectedState], props: initialProps),
+        ]));
+        expect(component.props, equals(newProps));
+      });
+
+      test('updates state with correct lifecycle calls and does not rerender', () {
+        const Map initialState = const {
+          'initialState': 'initial',
+        };
+        const Map newState = const {
+          'initialState': 'initial',
+          'newState': 'new',
+        };
+        const Map stateDelta = const {
+          'newState': 'new',
+        };
+
+        const Map expectedProps = const {
+          'shouldComponentUpdate': false,
+          'children': const [],
+        };
+
+        _LifecycleTest component = getDartComponent(render(LifecycleTest({'shouldComponentUpdate': false})));
+        component.setState(initialState);
+
+        component.lifecycleCalls.clear();
+
+        component.setState(stateDelta);
+
+        expect(component.lifecycleCalls, equals([
+          matchCall('shouldComponentUpdate', args: [expectedProps, newState], state: initialState),
+        ]));
+        expect(component.state, equals(newState));
+      });
+    });
   });
 }
 
@@ -232,7 +292,7 @@ class _LifecycleTest extends react.Component {
 
   bool shouldComponentUpdate(nextProps, nextState) {
     recordLifecycleCall('shouldComponentUpdate', [new Map.from(nextProps), new Map.from(nextState)]);
-    return true;
+    return props['shouldComponentUpdate'] ?? true;
   }
 
   dynamic render() {
