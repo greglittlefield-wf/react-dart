@@ -28,12 +28,12 @@ typedef Component ComponentFactory();
 /// See: <https://facebook.github.io/react/docs/more-about-refs.html#the-ref-callback-attribute>
 typedef _CallbackRef(componentOrDomNode);
 
-/// Creates ReactJS [Component] instances.
+/// Creates ReactJS [ReactElement] instances.
 abstract class ReactComponentFactoryProxy implements Function {
-  /// The type of [Component] created by this factory.
+  /// The type of component created by this factory.
   get type;
 
-  /// Returns a new rendered [Component] instance with the specified [props] and [children].
+  /// Returns a new rendered component instance with the specified [props] and [children].
   ReactElement call(Map props, [dynamic children]);
 
   /// Used to implement a variadic version of [call], in which children may be specified as additional arguments.
@@ -301,7 +301,7 @@ ReactComponentFactory _registerComponent(ComponentFactory componentFactory, [Ite
   return new ReactDartComponentFactoryProxy(reactComponentClass, defaultProps);
 }
 
-/// Creates ReactJS [Component] instances for DOM components.
+/// Creates ReactJS [ReactElement] instances for DOM components.
 class ReactDomComponentFactoryProxy extends ReactComponentFactoryProxy {
   /// The name of the proxied DOM component.
   ///
