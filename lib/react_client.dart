@@ -69,7 +69,7 @@ class ReactDartComponentFactoryProxy<TComponent extends Component> extends React
     }
 
     return reactComponentFactory(
-      generateExtendedJsProps(props, children),
+      generateExtendedJsProps(props, children, defaultProps: defaultProps),
       jsifyChildren(children)
     );
   }
@@ -82,7 +82,7 @@ class ReactDartComponentFactoryProxy<TComponent extends Component> extends React
       markChildrenValidated(children);
 
       return reactComponentFactory(
-        generateExtendedJsProps(props, children),
+        generateExtendedJsProps(props, children, defaultProps: defaultProps),
         jsifyChildren(children)
       );
     }
@@ -92,18 +92,24 @@ class ReactDartComponentFactoryProxy<TComponent extends Component> extends React
 
   /// Returns a [JsObject] version of the specified [props], preprocessed for consumption by ReactJS and prepared for
   /// consumption by the [react] library internals.
-  InteropProps generateExtendedJsProps(Map props, dynamic children) {
+  static InteropProps generateExtendedJsProps(Map props, dynamic children, {Map defaultProps}) {
     if (children == null) {
       children = [];
     } else if (children is! Iterable) {
       children = [children];
     }
 
-    // Merge in defaults props and add children.
-    Map extendedProps = new Map.from(defaultProps)
+    // 1. Merge in defaults (if they were specified)
+    // 2. Add specified props and children.
+    // 3. Remove "reserved" props that should not be visible to the rendered component.
+
+    // [1]
+    Map extendedProps = defaultProps != null ? new Map.from(defaultProps) : {};
+    extendedProps
+      // [2]
       ..addAll(props)
       ..['children'] = children
-      // Remove "reserved" props that should not be visible to the rendered component.
+      // [3]
       ..remove('key')
       ..remove('ref');
 
