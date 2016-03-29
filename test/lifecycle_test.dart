@@ -28,6 +28,16 @@ void main() {
     return dartElement.props.internal.props;
   }
 
+  /// Returns a new [Map.unmodifiable] with all argument maps merged in.
+  Map unmodifiableMap([Map map1, Map map2, Map map3, Map map4]) {
+    var merged = {};
+    if (map1 != null) merged.addAll(map1);
+    if (map2 != null) merged.addAll(map2);
+    if (map3 != null) merged.addAll(map3);
+    if (map4 != null) merged.addAll(map4);
+    return new Map.unmodifiable(merged);
+  }
+
   group('React component lifecycle:', () {
     group('default props', () {
       test('getDefaultProps() is only called once per component class and cached', () {
@@ -86,6 +96,9 @@ void main() {
     const Map defaultProps = const {
       'defaultProp': 'default'
     };
+    const Map emptyChildrenProps = const {
+      'children': const []
+    };
 
     Map matchCall(String memberName, {args: anything, props: anything, state: anything}) {
       return {
@@ -133,11 +146,11 @@ void main() {
         'children': const []
       };
 
-      final Map initialPropsWithDefaults = new Map.unmodifiable({}
+      final Map initialPropsWithDefaults = unmodifiableMap({}
         ..addAll(defaultProps)
         ..addAll(initialProps)
       );
-      final Map newPropsWithDefaults = new Map.unmodifiable({}
+      final Map newPropsWithDefaults = unmodifiableMap({}
         ..addAll(defaultProps)
         ..addAll(newProps)
       );
@@ -173,14 +186,14 @@ void main() {
         'newState': 'new',
       };
 
-      final Map initialProps = new Map.unmodifiable({
-        'getInitialState': () => initialState
+      final Map initialProps = unmodifiableMap({
+        'getInitialState': (_) => initialState
       });
 
-      final Map expectedProps = new Map.unmodifiable({}
-        ..addAll(defaultProps)
-        ..addAll(initialProps)
-        ..addAll(const {'children': const []})
+      final Map expectedProps = unmodifiableMap(
+          defaultProps,
+          initialProps,
+          emptyChildrenProps
       );
 
       _LifecycleTest component = getDartComponent(render(LifecycleTest(initialProps)));
@@ -197,10 +210,59 @@ void main() {
       ]));
     });
 
+    test('properly handles a call to setState within componentWillReceiveProps', () {
+      const Map initialState = const {
+        'initialState': 'initial',
+      };
+      const Map newState = const {
+        'initialState': 'initial',
+        'newState': 'new',
+      };
+      const Map stateDelta = const {
+        'newState': 'new',
+      };
+
+      final Map lifecycleTestProps = unmodifiableMap({
+        'getInitialState': (_) => initialState,
+        'componentWillReceiveProps': (_LifecycleTest component, Map props) {
+          component.setState(stateDelta);
+        },
+      });
+      final Map initialProps = unmodifiableMap(
+          {'initialProp': 'initial'}, lifecycleTestProps
+      );
+      final Map newProps = unmodifiableMap(
+          {'newProp': 'new'}, lifecycleTestProps
+      );
+
+      final Map initialPropsWithDefaults = unmodifiableMap(
+        defaultProps, initialProps, emptyChildrenProps
+      );
+      final Map newPropsWithDefaults = unmodifiableMap(
+        defaultProps, newProps, emptyChildrenProps
+      );
+
+      var mountNode = new DivElement();
+      var instance = react_dom.render(LifecycleTest(initialProps), mountNode);
+      _LifecycleTest component = getDartComponent(instance);
+
+      component.lifecycleCalls.clear();
+
+      react_dom.render(LifecycleTest(newProps), mountNode);
+
+      expect(component.lifecycleCalls, equals([
+        matchCall('componentWillReceiveProps', args: [newPropsWithDefaults],           props: initialPropsWithDefaults, state: initialState),
+        matchCall('shouldComponentUpdate',     args: [newPropsWithDefaults, newState], props: initialPropsWithDefaults, state: initialState),
+        matchCall('componentWillUpdate',       args: [newPropsWithDefaults, newState], props: initialPropsWithDefaults, state: initialState),
+        matchCall('render',                                                                    props: newPropsWithDefaults, state: newState),
+        matchCall('componentDidUpdate',        args: [initialPropsWithDefaults, initialState], props: newPropsWithDefaults, state: newState),
+      ]));
+    });
+
     group('when shouldComponentUpdate returns false:', () {
       test('recieves updated props with correct lifecycle calls and does not rerender', () {
-        final Map initialProps = new Map.unmodifiable({
-          'shouldComponentUpdate': (_, __) => false,
+        final Map initialProps = unmodifiableMap({
+          'shouldComponentUpdate': (_, __, ___) => false,
           'initialProp': 'initial',
           'children': const []
         });
@@ -209,13 +271,11 @@ void main() {
           'children': const []
         };
 
-        final Map initialPropsWithDefaults = new Map.unmodifiable({}
-          ..addAll(defaultProps)
-          ..addAll(initialProps)
+        final Map initialPropsWithDefaults = unmodifiableMap(
+            defaultProps, initialProps
         );
-        final Map newPropsWithDefaults = new Map.unmodifiable({}
-          ..addAll(defaultProps)
-          ..addAll(newProps)
+        final Map newPropsWithDefaults = unmodifiableMap(
+            defaultProps, newProps
         );
 
         const Map expectedState = const {};
@@ -247,15 +307,13 @@ void main() {
           'newState': 'new',
         };
 
-        final Map initialProps = new Map.unmodifiable({
-          'getInitialState': () => initialState,
-          'shouldComponentUpdate': (_, __) => false,
+        final Map initialProps = unmodifiableMap({
+          'getInitialState': (_) => initialState,
+          'shouldComponentUpdate': (_, __, ___) => false,
         });
 
-        final Map expectedProps = new Map.unmodifiable({}
-          ..addAll(defaultProps)
-          ..addAll(initialProps)
-          ..addAll({'children': const []})
+        final Map expectedProps = unmodifiableMap(
+            defaultProps, initialProps, emptyChildrenProps
         );
 
         _LifecycleTest component = getDartComponent(render(LifecycleTest(initialProps)));
@@ -310,7 +368,7 @@ class _LifecycleTest extends react.Component {
 
     var lifecycleCallback = props == null ? null : props[memberName];
     if (lifecycleCallback != null) {
-      return Function.apply(lifecycleCallback, arguments);
+      return Function.apply(lifecycleCallback, [this]..addAll(arguments));
     }
 
     if (defaultReturnValue != null) {
