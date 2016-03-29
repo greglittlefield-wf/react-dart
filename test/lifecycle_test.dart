@@ -173,13 +173,17 @@ void main() {
         'newState': 'new',
       };
 
+      final Map initialProps = new Map.unmodifiable({
+        'getInitialState': () => initialState
+      });
+
       final Map expectedProps = new Map.unmodifiable({}
         ..addAll(defaultProps)
+        ..addAll(initialProps)
         ..addAll(const {'children': const []})
       );
 
-      _LifecycleTest component = getDartComponent(render(LifecycleTest({})));
-      component.setState(initialState);
+      _LifecycleTest component = getDartComponent(render(LifecycleTest(initialProps)));
 
       component.lifecycleCalls.clear();
 
@@ -244,7 +248,8 @@ void main() {
         };
 
         final Map initialProps = new Map.unmodifiable({
-          'shouldComponentUpdate': (_, __) => false
+          'getInitialState': () => initialState,
+          'shouldComponentUpdate': (_, __) => false,
         });
 
         final Map expectedProps = new Map.unmodifiable({}
@@ -254,8 +259,6 @@ void main() {
         );
 
         _LifecycleTest component = getDartComponent(render(LifecycleTest(initialProps)));
-        component.setState(initialState);
-
         component.lifecycleCalls.clear();
 
         component.setState(stateDelta);
