@@ -326,6 +326,53 @@ void main() {
         ]));
         expect(component.state, equals(newState));
       });
+
+      test('properly handles a call to setState within componentWillReceiveProps and does not rerender', () {
+        const Map initialState = const {
+          'initialState': 'initial',
+        };
+        const Map newState = const {
+          'initialState': 'initial',
+          'newState': 'new',
+        };
+        const Map stateDelta = const {
+          'newState': 'new',
+        };
+
+        final Map lifecycleTestProps = unmodifiableMap({
+          'shouldComponentUpdate': (_, __, ___) => false,
+          'getInitialState': (_) => initialState,
+          'componentWillReceiveProps': (_LifecycleTest component, Map props) {
+            component.setState(stateDelta);
+          },
+        });
+        final Map initialProps = unmodifiableMap(
+            {'initialProp': 'initial'}, lifecycleTestProps
+        );
+        final Map newProps = unmodifiableMap(
+            {'newProp': 'new'}, lifecycleTestProps
+        );
+
+        final Map initialPropsWithDefaults = unmodifiableMap(
+          defaultProps, initialProps, emptyChildrenProps
+        );
+        final Map newPropsWithDefaults = unmodifiableMap(
+          defaultProps, newProps, emptyChildrenProps
+        );
+
+        var mountNode = new DivElement();
+        var instance = react_dom.render(LifecycleTest(initialProps), mountNode);
+        _LifecycleTest component = getDartComponent(instance);
+
+        component.lifecycleCalls.clear();
+
+        react_dom.render(LifecycleTest(newProps), mountNode);
+
+        expect(component.lifecycleCalls, equals([
+          matchCall('componentWillReceiveProps', args: [newPropsWithDefaults],           props: initialPropsWithDefaults, state: initialState),
+          matchCall('shouldComponentUpdate',     args: [newPropsWithDefaults, newState], props: initialPropsWithDefaults, state: initialState),
+        ]));
+      });
     });
   });
 }
