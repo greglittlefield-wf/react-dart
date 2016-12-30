@@ -10,9 +10,9 @@ import "dart:collection";
 import "dart:html";
 
 import "package:js/js.dart";
+import 'package:js/js_util.dart';
 import "package:react/react.dart";
-// ignore: deprecated_member_use
-import "package:react/react_client/js_interop_helpers.dart";
+import "package:react/react_client/js_interop_helpers.dart" hide getProperty, setProperty, jsify;
 import 'package:react/react_client/react_interop.dart';
 import "package:react/react_dom.dart";
 import "package:react/react_dom_server.dart";
@@ -331,13 +331,23 @@ class ReactJsComponentFactoryProxy extends ReactComponentFactoryProxy {
   /// The JS component factory used by this factory to build [ReactElement]s.
   final Function factory;
 
-  ReactJsComponentFactoryProxy(ReactClass type) :
+  /// Whether to automatically prepare props relating to bound values and event handlers
+  /// via [ReactDomComponentFactoryProxy.convertProps] for consumption by React JS DOM components.
+  ///
+  /// Useful when the JS component forwards DOM props to its rendered DOM components.
+  ///
+  /// Disable for more custom handling of these props.
+  final bool convertDomProps;
+
+  ReactJsComponentFactoryProxy(ReactClass type, {bool this.convertDomProps: true}) :
       this.type = type,
       this.factory = React.createFactory(type);
 
   @override
   ReactElement call(Map props, [dynamic children]) {
-    return factory(jsify(props), listifyChildren(children));
+    if (convertDomProps) ReactDomComponentFactoryProxy.convertProps(props);
+
+    return factory(jsifyAndAllowInterop(props), listifyChildren(children));
   }
 
   @override
@@ -346,9 +356,10 @@ class ReactJsComponentFactoryProxy extends ReactComponentFactoryProxy {
       Map props = invocation.positionalArguments[0];
       List children = listifyChildren(invocation.positionalArguments.sublist(1));
 
+      if (convertDomProps) ReactDomComponentFactoryProxy.convertProps(props);
       markChildrenValidated(children);
 
-      return factory(jsify(props), children);
+      return factory(jsifyAndAllowInterop(props), children);
     }
 
     return super.noSuchMethod(invocation);
@@ -375,7 +386,7 @@ class ReactDomComponentFactoryProxy extends ReactComponentFactoryProxy {
   @override
   ReactElement call(Map props, [dynamic children]) {
     convertProps(props);
-    return factory(jsify(props), listifyChildren(children));
+    return factory(jsifyAndAllowInterop(props), listifyChildren(children));
   }
 
   @override
@@ -387,13 +398,14 @@ class ReactDomComponentFactoryProxy extends ReactComponentFactoryProxy {
       convertProps(props);
       markChildrenValidated(children);
 
-      return factory(jsify(props), children);
+      return factory(jsifyAndAllowInterop(props), children);
     }
 
     return super.noSuchMethod(invocation);
   }
 
-  /// Prepares the bound values, event handlers, and style props for consumption by ReactJS DOM components.
+  /// Sets up bound value handling and wraps DOM event handlers with SyntheticEvent conversion logic
+  /// for consumption by React JS DOM components.
   static void convertProps(Map props) {
     _convertBoundValues(props);
     _convertEventHandlers(props);
