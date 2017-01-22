@@ -32,6 +32,18 @@ void sharedJsFunctionTests() {
 
         expect(getProperty(jsObj, 'foo'), equals('bar'));
       });
+
+      test('doesn\'t have any issues with null-checks in the result'
+          ' (regression test for https://github.com/dart-lang/sdk/issues/28462)', () {
+        var jsObj = new TestJsObject(foo: 'bar');
+        expect(jsObj.foo, isNotNull, reason: 'test setup sanity-check');
+        expect(jsObj.baz, isNull, reason: 'test setup sanity-check');
+
+        // Use `== null` expression and not isNull matcher to ensure the same conditions
+        // as in the bug are met
+        expect(getProperty(jsObj, 'foo') == null, isFalse);
+        expect(getProperty(jsObj, 'baz') == null, isTrue);
+      });
     });
 
     // TODO: remove in 4.0.0
@@ -68,7 +80,8 @@ void sharedJsFunctionTests() {
 @JS()
 @anonymous
 class TestJsObject {
-  external factory TestJsObject({foo});
+  external factory TestJsObject({foo, baz});
 
   external get foo;
+  external get baz;
 }
