@@ -1,5 +1,5 @@
 name: react
-version: 3.1.0
+version: 3.1.1
 author: Clean Team <clean@vacuumlabs.com>
 description: Bindings of the ReactJS library for building interactive interfaces.
 homepage: http://cleandart.github.io/react-dart/
@@ -8,6 +8,5 @@ environment:
 dependencies:
   browser: '>=0.9.0 <0.11.0'
   js: '^0.6.1'
-  quiver: '>=0.18.2 <0.23.0'
 dev_dependencies:
-  unittest: '>=0.11.0 <0.12.0'
+  test: '^0.12.18+1'
