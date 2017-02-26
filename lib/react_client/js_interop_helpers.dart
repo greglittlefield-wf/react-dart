@@ -59,13 +59,16 @@ dynamic jsify(Map map) {
   var jsMap = js_util.newObject();
 
   map.forEach((key, value) {
+    var jsValue;
     if (value is Map) {
-      value = jsify(value);
+      jsValue = jsify(value);
     } else if (value is Function) {
-      value = allowInterop(value);
+      jsValue = allowInterop(value);
+    } else {
+      jsValue = value;
     }
 
-    js_util.setProperty(jsMap, key, value);
+    js_util.setProperty(jsMap, key, jsValue);
   });
 
   return jsMap;
