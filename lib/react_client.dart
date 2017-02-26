@@ -10,10 +10,9 @@ import "dart:collection";
 import "dart:html";
 
 import "package:js/js.dart";
-import 'package:js/js_util.dart' hide jsify;
 import "package:react/react.dart";
 // ignore: deprecated_member_use
-import "package:react/react_client/js_interop_helpers.dart" show jsify, EmptyObject;
+import "package:react/react_client/js_interop_helpers.dart";
 import 'package:react/react_client/react_interop.dart';
 import "package:react/react_dom.dart";
 import "package:react/react_dom_server.dart";

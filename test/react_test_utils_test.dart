@@ -5,10 +5,10 @@ library react_test_utils_test;
 import 'dart:html';
 
 import 'package:js/js.dart';
-import 'package:js/js_util.dart';
 import 'package:react/react.dart';
 import 'package:react/react_dom.dart' as react_dom;
 import 'package:react/react_client.dart';
+import 'package:react/react_client/js_interop_helpers.dart';
 import 'package:react/react_test_utils.dart';
 import 'package:test/test.dart';
 

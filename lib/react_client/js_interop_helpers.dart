@@ -6,6 +6,8 @@ library react_client.js_interop_helpers;
 import "package:js/js.dart";
 import "package:js/js_util.dart" as js_util;
 
+export 'package:js/js_util.dart' show newObject;
+
 @JS()
 external dynamic _getProperty(jsObj, String key);
 
@@ -33,6 +35,8 @@ class _MissingJsMemberError extends Error {
 /// Necessary because `external operator[]` isn't allowed on JS interop classes
 /// (see: https://github.com/dart-lang/sdk/issues/25053).
 ///
+/// TODO: switch over to [js_util.getProperty] once https://github.com/dart-lang/sdk/issues/28462 is fixed
+///
 /// __Defined in this package's React JS files.__
 final _GetPropertyFn getProperty = (() {
   try {
@@ -55,6 +59,8 @@ final _GetPropertyFn getProperty = (() {
 ///
 /// Necessary because `external operator[]=` isn't allowed on JS interop classes
 /// (see: https://github.com/dart-lang/sdk/issues/25053).
+///
+/// TODO: switch over to [js_util.setProperty] once https://github.com/dart-lang/sdk/issues/28462 is fixed
 ///
 /// __Defined in this package's React JS files.__
 final _SetPropertyFn setProperty = (() {
