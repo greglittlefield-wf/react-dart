@@ -113,8 +113,6 @@ class ReactElementStore {
 @JS()
 @anonymous
 class ReactElement {
-  external ReactElementStore get _store;
-
   /// The type of this element.
   ///
   /// For DOM components, this will be a [String] tagName (e.g., `'div'`, `'a'`).

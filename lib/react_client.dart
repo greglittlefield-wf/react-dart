@@ -12,6 +12,7 @@ import "dart:html";
 import "package:js/js.dart";
 import 'package:js/js_util.dart' hide jsify;
 import "package:react/react.dart";
+// ignore: deprecated_member_use
 import "package:react/react_client/js_interop_helpers.dart" show jsify, EmptyObject;
 import 'package:react/react_client/react_interop.dart';
 import "package:react/react_dom.dart";
@@ -21,7 +22,9 @@ import 'package:react/src/typedefs.dart';
 
 export 'package:react/react_client/react_interop.dart' show ReactElement, ReactJsComponentFactory;
 
+/// __Deprecated__; use [newObject] instead.
 @Deprecated('4.0.0')
+// ignore: deprecated_member_use
 final EmptyObject emptyJsMap = new EmptyObject();
 
 /// Type of [children] must be child or list of children, when child is [ReactElement] or [String]
