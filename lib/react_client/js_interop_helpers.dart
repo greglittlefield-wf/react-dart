@@ -26,8 +26,7 @@ class _MissingJsMemberError extends Error {
       '_MissingJsMemberError: The JS member `$name` is missing and thus '
       'cannot be used as expected. $message';
 }
-/// __Deprecated: use [js_util.getProperty] instead.
-///
+
 /// Returns the property at the given [_GetPropertyFn.key] on the
 /// specified JavaScript object [_GetPropertyFn.jsObj]
 ///
@@ -35,7 +34,6 @@ class _MissingJsMemberError extends Error {
 /// (see: https://github.com/dart-lang/sdk/issues/25053).
 ///
 /// __Defined in this package's React JS files.__
-@Deprecated('4.0.0')
 final _GetPropertyFn getProperty = (() {
   try {
     // If this throws, then the JS function isn't available.
@@ -52,8 +50,6 @@ final _GetPropertyFn getProperty = (() {
   return _getProperty;
 })();
 
-/// __Deprecated: use [js_util.setProperty] instead.
-///
 /// Sets the property at the given [_SetPropertyFn.key] to [_SetPropertyFn.value]
 /// on the specified JavaScript object [_SetPropertyFn.jsObj]
 ///
@@ -61,7 +57,6 @@ final _GetPropertyFn getProperty = (() {
 /// (see: https://github.com/dart-lang/sdk/issues/25053).
 ///
 /// __Defined in this package's React JS files.__
-@Deprecated('4.0.0')
 final _SetPropertyFn setProperty = (() {
   try {
     // If this throws, then the JS function isn't available.
