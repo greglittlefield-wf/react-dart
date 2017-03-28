@@ -163,9 +163,7 @@ final ReactDartInteropStatics _dartInteropStatics = (() {
   /// Wrapper for [Component.getInitialState].
   void initComponent(ReactComponent jsThis, ReactDartComponentInternal internal, ComponentStatics componentStatics) => zone.run(() {
     var redraw = () {
-      if (internal.isMounted) {
-        jsThis.setState(emptyJsMap);
-      }
+      jsThis.setState(emptyJsMap);
     };
 
     Ref getRef = (name) {
