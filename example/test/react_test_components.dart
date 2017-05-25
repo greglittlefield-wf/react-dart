@@ -1,6 +1,7 @@
 import "dart:async";
 
 import "package:react/react.dart" as react;
+import 'package:react/react_client.dart';
 import "package:react/react_dom.dart" as react_dom;
 
 
@@ -48,7 +49,7 @@ class _CheckBoxComponent extends react.Component {
   render() {
     return react.div({}, [
         react.label({'className': this.state["checked"] ? 'striked' : 'not-striked'}, 'do the dishes'),
-        react.input({'type': 'checkbox', 'value': bind('checked')}, [])
+        react.input({'type': 'checkbox', 'value': bind('checked')})
     ]);
   }
 }
@@ -144,11 +145,6 @@ class _ListComponent extends react.Component {
 
 var listComponent = react.registerComponent(() => new _ListComponent());
 
-class _MainComponent extends react.Component {
-
-  render() {
-    return react.div({'ref': 'myDiv'}, props['children']);
-  }
-}
-
-var mainComponent = react.registerComponent(() => new _MainComponent());
+var mainComponent = registerStatelessFunctionalComponent((props) {
+  return react.div({}, props['children']);
+}, displayName: 'Main');
