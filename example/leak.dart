@@ -1,3 +1,4 @@
+import 'dart:developer';
 import "dart:html";
 
 import "package:react/react.dart" as react;
@@ -16,12 +17,17 @@ void main() {
     querySelector('#test_unmount'),
   );
 
+  print('Take a memory snapshot and then resume execution');
+  debugger();
+
   react_dom.render(
     A({'renderChildren': false}, [
       b
     ]),
     querySelector('#test_unmount'),
   );
+
+  print('Take another memory snapshot and verify that no instances of `_B` have been retained.');
 }
 
 
