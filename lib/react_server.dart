@@ -57,8 +57,7 @@ ReactComponentFactory _reactDom(String name) {
     // Pack component string creation into function to easily pass owner id, position and key
     // (from its custom component owner)
     return ([String ownerId, num position, String key]) {
-      if (_selfClosingElementTags.contains(name) &&
-          (children != null && children.length > 0)) {
+      if (_selfClosingElementTags.contains(name) && (children != null && children.length > 0)) {
         throw new Exception('$name element does not accept children.');
       }
 
@@ -77,9 +76,7 @@ ReactComponentFactory _reactDom(String name) {
         thisId = ownerId +
             (key != null
                 ? '.\$$key'
-                : (position != null
-                    ? '.${position.toInt().toRadixString(36)}'
-                    : '.0'));
+                : (position != null ? '.${position.toInt().toRadixString(36)}' : '.0'));
       }
 
       // Create StringBuffer to build result, append open tag to it
@@ -329,7 +326,7 @@ Set _elementTags = new Set.from([
   'radialGradient',
   'svg',
   'text',
-  'tspan',
+  'tspan'
 ]);
 
 /// Set of HTML [Element] names that are "self-closing"
@@ -357,7 +354,7 @@ Set _selfClosingElementTags = new Set.from([
   'polygon',
   'polyline',
   'rect',
-  'stop',
+  'stop'
 ]);
 
 String _renderComponentToString(OwnerFactory component) {
@@ -404,6 +401,5 @@ _adler32(String data) {
 
 void setServerConfiguration() {
   setReactConfiguration(_reactDom, _registerComponent);
-  setReactDOMServerConfiguration(
-      _renderComponentToString, _renderToStaticMarkup);
+  setReactDOMServerConfiguration(_renderComponentToString, _renderToStaticMarkup);
 }
