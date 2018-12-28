@@ -75,21 +75,22 @@ class ReactClass {
 @JS()
 @anonymous
 class ReactClassConfig {
-  external factory ReactClassConfig(
-      {String displayName,
-      List mixins,
-      Function componentWillMount,
-      Function componentDidMount,
-      Function componentWillReceiveProps,
-      Function shouldComponentUpdate,
-      Function componentWillUpdate,
-      Function componentDidUpdate,
-      Function componentWillUnmount,
-      Function getChildContext,
-      Map<String, dynamic> childContextTypes,
-      Function getDefaultProps,
-      Function getInitialState,
-      Function render});
+  external factory ReactClassConfig({
+    String displayName,
+    List mixins,
+    Function componentWillMount,
+    Function componentDidMount,
+    Function componentWillReceiveProps,
+    Function shouldComponentUpdate,
+    Function componentWillUpdate,
+    Function componentDidUpdate,
+    Function componentWillUnmount,
+    Function getChildContext,
+    Map<String, dynamic> childContextTypes,
+    Function getDefaultProps,
+    Function getInitialState,
+    Function render,
+  });
 
   /// The `displayName` string is used in debugging messages.
   ///
@@ -190,8 +191,11 @@ class InteropProps {
   external set key(dynamic value);
   external set ref(dynamic value);
 
-  external factory InteropProps(
-      {ReactDartComponentInternal internal, String key, dynamic ref});
+  external factory InteropProps({
+    ReactDartComponentInternal internal,
+    String key,
+    dynamic ref,
+  });
 }
 
 /// Internal react-dart information used to proxy React JS lifecycle to Dart
@@ -244,6 +248,7 @@ external ReactClassConfig createReactDartComponentClassConfig(
     ComponentStatics componentStatics,
     [JsComponentConfig jsConfig]);
 
+// TODO inline these typedefs using new function syntax
 typedef Component _InitComponent(
     ReactComponent jsThis,
     ReactDartComponentInternal internal,
